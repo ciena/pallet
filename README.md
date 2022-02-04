@@ -1,4 +1,4 @@
-# [![outbound](./assets/outbound_64x64_bg.png)](https://github.com/ciena/outbound)
+# [![outbound](./assets/outbound_64x64_r_bg.png)](https://github.com/ciena/outbound)
 
 ---
 
