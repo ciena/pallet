@@ -4,6 +4,7 @@ package planner;
 message SchedulePlanRequest {
     string namespace = 1;
     string podSet = 2;
+    repeated string eligibleNodes = 3;
 }
 
 message SchedulePlanResponse {

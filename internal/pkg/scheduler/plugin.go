@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ciena/outbound/internal/pkg/client"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
@@ -37,9 +38,12 @@ const (
 // PodSetPlanner instance state for the the policy scheduling
 // plugin.
 type PodSetPlanner struct {
-	handle  framework.Handle
-	log     logr.Logger
-	options *PodSetPlannerOptions
+	handle         framework.Handle
+	log            logr.Logger
+	options        *PodSetPlannerOptions
+	plannerService *PlannerService
+	plannerClient  *client.SchedulePlannerClient
+	triggerClient  *client.ScheduleTriggerClient
 }
 
 type preFilterState struct {
@@ -74,14 +78,14 @@ func New(
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
 		if err != nil {
-			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+			return nil, err
 		}
 
 		log = zapr.NewLogger(zapLog)
 	} else {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
-			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
+			return nil, err
 		}
 
 		log = zapr.NewLogger(zapLog)
@@ -89,13 +93,36 @@ func New(
 
 	pluginLogger := log.WithName("scheduling-plugin")
 
-	schedulePlanner := &PodSetPlanner{
-		handle:  handle,
-		log:     pluginLogger,
-		options: config,
+	plannerClient, err := client.NewSchedulePlannerClient(handle.KubeConfig(),
+		pluginLogger.WithName("planner-client"))
+	if err != nil {
+		pluginLogger.Error(err, "error-initializing-planner-client")
+
+		return nil, err
 	}
 
-	pluginLogger.V(1).Info("constraint-policy-scheduling-plugin-initialized")
+	triggerClient, err := client.NewScheduleTriggerClient(handle.KubeConfig(),
+		pluginLogger.WithName("trigger-client"))
+	if err != nil {
+		pluginLogger.Error(err, "error-initializing-trigger-client")
+
+		return nil, err
+	}
+
+	plannerService := NewPlannerService(plannerClient, handle,
+		pluginLogger.WithName("planner-service"),
+		config.CallTimeout)
+
+	schedulePlanner := &PodSetPlanner{
+		handle:         handle,
+		log:            pluginLogger,
+		options:        config,
+		plannerService: plannerService,
+		plannerClient:  plannerClient,
+		triggerClient:  triggerClient,
+	}
+
+	pluginLogger.V(1).Info("podset-scheduling-plugin-initialized")
 
 	return schedulePlanner, nil
 }
@@ -226,4 +253,93 @@ func (c *PodSetPlanner) PostFilter(ctx context.Context,
 	c.log.V(1).Info("post-filter", "nominated-node", assignmentState.node, "pod", pod.Name)
 
 	return &framework.PostFilterResult{NominatedNodeName: assignmentState.node}, framework.NewStatus(framework.Success)
+}
+
+func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligibleNodes []string) (string, error) {
+	podset := p.getPodSet(pod)
+	if podset == "" {
+		return "", ErrNoPodSetFound
+	}
+
+	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout)
+
+	trigger, err := p.triggerClient.Get(ctx, pod.Namespace, podset)
+	cancel()
+
+	if err != nil {
+		p.log.V(1).Info("no-trigger-found", "pod", pod.Name, "podset", podset, "namespace", pod.Namespace)
+		return "", err
+	}
+
+	// pod not assignable if trigger is not active
+	if trigger.Spec.State != "Schedule" {
+		p.log.V(1).Info("trigger-not-active", trigger.Name, "state", trigger.Spec.State, "podset", podset)
+
+		return "", ErrPodNotAssignable
+	}
+
+	ctx, cancel = context.WithTimeout(parentCtx, p.options.CallTimeout)
+
+	planStatus, planSpec, _ := p.plannerClient.CheckIfPodPresent(ctx,
+		pod.Namespace, podset, pod.Name)
+	cancel()
+
+	// pod is in the planspec.
+	// check if the node is in the eligible filtered list
+	// if not, we hit the planner again to reallocate pod
+	// the new eligible set
+
+	if planStatus {
+
+		for _, node := range eligibleNodes {
+
+			if node == planSpec.Node {
+
+				return planSpec.Node, nil
+			}
+		}
+
+	}
+
+	// get to the planner to place the pod
+	planners, err := p.plannerService.Lookup(parentCtx, pod.Namespace, podset, eligibleNodes)
+	if err != nil {
+		p.log.V(1).Info("could-not-find-planner", "pod", pod.Name, "podset", podset)
+
+		return "", err
+	}
+
+	p.log.V(1).Info("found-planner", "pod", pod.Name, "podset", podset, "planners", len(planners))
+	assignments, err := planners.Invoke(parentCtx, trigger)
+	if err != nil {
+		return "", err
+	}
+
+	// planner assignment success. validate if this pod is in the assignment map
+	selectedNode, ok := assignments[pod.Name]
+	if !ok {
+		return "", ErrNotFound
+	}
+
+	err = p.plannerService.CreateOrUpdate(parentCtx, pod, podset, selectedNode)
+	if err != nil {
+		return "", err
+	}
+
+	p.log.V(1).Info("scheduler-assignment", "pod", pod.Name, "node", selectedNode)
+
+	return selectedNode, nil
+}
+
+func (p *PodSetPlanner) getPodSet(pod *v1.Pod) string {
+	podset := ""
+
+	for k, v := range pod.Labels {
+		if k == "planner.ciena.io/pod-set" {
+			podset = v
+			break
+		}
+	}
+
+	return podset
 }

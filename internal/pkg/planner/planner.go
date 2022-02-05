@@ -253,7 +253,7 @@ func (p *PodSetPlanner) BuildPlan(podList []*v1.Pod,
 	return assignmentMap, nil
 }
 
-func (p *PodSetPlanner) BuildSchedulePlan(namespace, podSet string) (map[string]string, error) {
+func (p *PodSetPlanner) BuildSchedulePlan(namespace, podSet string, eligibleNodes []string) (map[string]string, error) {
 	p.log.V(1).Info("build-schedule-plan", "podset", podSet, "namespace", namespace)
 
 	pods, err := p.clientset.CoreV1().Pods(namespace).List(context.Background(),
@@ -262,12 +262,6 @@ func (p *PodSetPlanner) BuildSchedulePlan(namespace, podSet string) (map[string]
 	)
 	if err != nil {
 		p.log.Error(err, "build-schedule-plan-list-pods-error", "podset", podSet)
-		return nil, err
-	}
-
-	eligibleNodes, err := getEligibleNodeNames(p.nodeLister)
-	if err != nil {
-		p.log.Error(err, "build-schedule-plan-get-eligibleNodes-error", "podset", podSet)
 		return nil, err
 	}
 
