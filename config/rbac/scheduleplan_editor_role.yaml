@@ -1,0 +1,24 @@
+# permissions for end users to edit scheduleplans.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scheduleplan-editor-role
+rules:
+- apiGroups:
+  - planner.ciena.io
+  resources:
+  - scheduleplans
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - planner.ciena.io
+  resources:
+  - scheduleplans/status
+  verbs:
+  - get
