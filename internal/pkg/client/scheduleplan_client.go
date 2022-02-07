@@ -63,10 +63,17 @@ func (c *SchedulePlannerClient) Get(ctx context.Context, namespace, podset strin
 }
 
 func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, podset string,
-	planSpec *plannerv1alpha1.PlanSpec) error {
+	assignments map[string]string) error {
 
 	planRef, err := c.Get(ctx, namespace, podset)
 	if err != nil {
+		var newPlan []plannerv1alpha1.PlanSpec
+
+		for pod, node := range assignments {
+			newPlan = append(newPlan,
+				plannerv1alpha1.PlanSpec{Pod: pod, Node: node})
+		}
+
 		name := getName(namespace, podset)
 		plan := plannerv1alpha1.SchedulePlan{
 			ObjectMeta: metav1.ObjectMeta{
@@ -77,9 +84,7 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 				},
 			},
 			Spec: plannerv1alpha1.SchedulePlanSpec{
-				Plan: []plannerv1alpha1.PlanSpec{
-					*planSpec,
-				},
+				Plan: newPlan,
 			},
 		}
 
@@ -95,36 +100,37 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 	}
 
 	//update the plan spec if pod and node assignment has changed
-	update := true
-
 	var newPlan []plannerv1alpha1.PlanSpec
+	var currentPlan []plannerv1alpha1.PlanSpec
 
-	for _, spec := range planRef.Spec.Plan {
+	presenceMap := make(map[plannerv1alpha1.PlanSpec]struct{}, len(planRef.Spec.Plan))
 
-		if spec.Pod == planSpec.Pod {
-
-			if spec.Node == planSpec.Node {
-				update = false
-				break
-			}
-
-			spec.Node = planSpec.Node
-		}
-
-		newPlan = append(newPlan, spec)
+	for _, planSpec := range planRef.Spec.Plan {
+		presenceMap[planSpec] = struct{}{}
 	}
 
-	if !update {
-		c.Log.V(1).Info("plan-crud-pod-exists", "pod", planSpec.Pod)
+	for pod, node := range assignments {
+		planSpec := plannerv1alpha1.PlanSpec{Pod: pod, Node: node}
+
+		if _, ok := presenceMap[planSpec]; !ok {
+			newPlan = append(newPlan, planSpec)
+		} else {
+			currentPlan = append(currentPlan, planSpec)
+		}
+	}
+
+	if len(newPlan) == 0 {
+		c.Log.V(1).Info("no-changes-in-planner-assignments", "podset", podset, "namespace", namespace)
 
 		return nil
 	}
 
-	planRef.Spec.Plan = newPlan
+	planRef.Spec.Plan = append(currentPlan, newPlan...)
+
 	err = c.Client.Update(ctx, planRef)
 	if err != nil {
-		c.Log.Error(err, "plan-crud-update-error", "pod", planSpec.Pod,
-			"node", planSpec.Node, "podset", podset)
+		c.Log.Error(err, "plan-crud-update-error", "name", planRef.Name,
+			"podset", podset, "namespace", namespace)
 
 		return err
 	}

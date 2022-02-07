@@ -21,6 +21,7 @@ type Planner struct {
 	Service       v1.Service
 	Namespace     string
 	Podset        string
+	ScheduledPod  string
 	EligibleNodes []string
 	Log           logr.Logger
 	CallTimeout   time.Duration
@@ -48,17 +49,16 @@ func NewPlannerService(clnt *client.SchedulePlannerClient, handle framework.Hand
 }
 
 func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
-	podset, node string) error {
+	podset string,
+	assignments map[string]string) error {
 
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
-	planSpec := plannerv1alpha1.PlanSpec{Pod: pod.Name, Node: node}
-
 	err := s.clnt.CreateOrUpdate(ctx,
 		pod.Namespace,
 		podset,
-		&planSpec)
+		assignments)
 
 	if err != nil {
 		s.log.Error(err, "create-update-plan-failure", "pod", pod.Name)
@@ -69,7 +69,7 @@ func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 }
 
 func (s *PlannerService) Lookup(parentCtx context.Context,
-	namespace, podset string, eligibleNodes []string) (PlannerList, error) {
+	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error) {
 
 	podSetLabel := fmt.Sprintf("planner.ciena.io/%s", podset)
 	defaultPodSetLabel := "planner.ciena.io/default"
@@ -100,6 +100,7 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 					Service:       svc,
 					Namespace:     namespace,
 					Podset:        podset,
+					ScheduledPod:  scheduledPod,
 					EligibleNodes: eligibleNodes,
 					Log:           s.log.WithName("podset-planner"),
 					CallTimeout:   s.callTimeout,
@@ -114,6 +115,7 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 					Service:       svc,
 					Namespace:     namespace,
 					Podset:        podset,
+					ScheduledPod:  scheduledPod,
 					EligibleNodes: eligibleNodes,
 					Log:           s.log.WithName("default-podset-planner"),
 					CallTimeout:   s.callTimeout,
@@ -179,7 +181,9 @@ func computePlanReward(trigger *plannerv1alpha1.ScheduleTrigger, assignments map
 }
 
 func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]string, error) {
-	p.Log.V(1).Info("build-schedule-plan", "namespace", p.Namespace, "podset", p.Podset)
+	p.Log.V(1).Info("build-schedule-plan", "namespace", p.Namespace,
+		"podset", p.Podset,
+		"scheduledPod", p.ScheduledPod)
 
 	dns := fmt.Sprintf("%s.%s.svc.cluster.local:7309", p.Service.Name, p.Service.Namespace)
 
@@ -199,10 +203,14 @@ func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]strin
 
 	req := &planner.SchedulePlanRequest{Namespace: p.Namespace,
 		PodSet:        p.Podset,
+		ScheduledPod:  p.ScheduledPod,
 		EligibleNodes: p.EligibleNodes,
 	}
 
-	p.Log.V(1).Info("build-schedule-plan-request", "podset", p.Podset, "namespace", p.Namespace, "nodes", p.EligibleNodes)
+	p.Log.V(1).Info("build-schedule-plan-request", "podset", p.Podset,
+		"namespace", p.Namespace,
+		"scheduledPod", p.ScheduledPod,
+		"nodes", p.EligibleNodes)
 
 	resp, err := client.BuildSchedulePlan(ctx, req)
 	if err != nil {

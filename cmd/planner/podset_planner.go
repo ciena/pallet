@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/ciena/outbound/internal/pkg/parallelize"
 	"github.com/ciena/outbound/internal/pkg/planner"
 	"github.com/ciena/outbound/pkg/version"
 	"github.com/go-logr/logr"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
+	"time"
 )
 
 type configSpec struct {
@@ -36,6 +38,8 @@ type configSpec struct {
 	ShowVersion       bool
 	ShowVersionAsJSON bool
 	Debug             bool
+	CallTimeout       time.Duration
+	Parallelism       int
 }
 
 func k8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
@@ -69,6 +73,13 @@ func main() {
 	flag.BoolVar(&config.Debug,
 		"debug", true,
 		"Display debug logging messages")
+	flag.DurationVar(&config.CallTimeout,
+		"call-timeout", time.Second*15,
+		"GRPC call timeout")
+	flag.IntVar(&config.Parallelism,
+		"paralleism", parallelize.DefaultParallelism,
+		"Parallelism factor to run filter predicates to find eligible nodes for a pod")
+
 	flag.BoolVar(&config.ShowVersion,
 		"version", false,
 		"Display version information and exit")
@@ -111,10 +122,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	podsetPlanner := planner.NewPlanner(planner.PlannerOptions{},
+	podsetPlanner, err := planner.NewPlanner(planner.PlannerOptions{
+		CallTimeout: config.CallTimeout,
+		Parallelism: config.Parallelism,
+	},
 		clientset,
 		log.WithName("planner"),
 	)
+
+	if err != nil {
+		panic(err.Error())
+	}
 
 	// Start the API server
 	api := &planner.APIServer{

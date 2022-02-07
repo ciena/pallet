@@ -1,0 +1,158 @@
+# Copyright 2022 Ciena Corporation.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: planner-system
+  name: podset-planner
+  labels:
+    app: podset-planner 
+    component: podset-planner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: podset-planner
+subjects:
+- kind: ServiceAccount
+  name: podset-planner
+  namespace: planner-system
+roleRef:
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+  name: system:kube-scheduler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: podset-planner-pods
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "endpoints"]
+    verbs: ["get", "watch", "list", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: podset-planner-pods
+subjects:
+  - kind: ServiceAccount
+    name: podset-planner
+    namespace: planner-system
+roleRef:
+  kind: ClusterRole
+  name: podset-planner-pods
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: podset-planner-plans
+rules:
+  - apiGroups: ["planner.ciena.io"]
+    resources: ["scheduleplans", "scheduletriggers"]
+    verbs: ["create", "delete", "get", "watch", "list", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: podset-planner-plans
+subjects:
+  - kind: ServiceAccount
+    name: podset-planner
+    namespace: planner-system
+roleRef:
+  kind: ClusterRole
+  name: podset-planner-plans
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: podset-planner-services
+rules:
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "csinodes"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: podset-planner-services
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: podset-planner-services
+subjects:
+- kind: ServiceAccount
+  name: podset-planner
+  namespace: planner-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: podset-planner
+spec:
+  type: ClusterIP
+  ports:
+    - port: 7309
+      targetPort: 7777
+      protocol: TCP
+      name: grpc
+  selector:
+    app: podset-planner
+    app.kubernetes.io/name: podset-planner
+    app.kubernetes.io/component: planner
+    app.kubernetes.io/part-of: planner
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podset-planner
+  namespace: planner-system
+  labels:
+    app: podset-planner
+    app.kubernetes.io/name: podset-planner
+    app.kubernetes.io/component: planner
+    app.kubernetes.io/part-of: planner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: podset-planner
+      app.kubernetes.io/name: podset-planner
+      app.kubernetes.io/component: planner
+      app.kubernetes.io/part-of: planner
+  template:
+    metadata:
+      namespace: planner-system
+      labels:
+        app: podset-planner
+        app.kubernetes.io/name: podset-planner
+        app.kubernetes.io/component: planner
+        app.kubernetes.io/part-of: planner
+    spec:
+      serviceAccount: podset-planner
+      containers:
+        - name: podset-planner
+          image: IMAGE_SPEC
+          imagePullPolicy: Always
+          args:
+            - "--debug=true"
+            - "--listen=:7777"

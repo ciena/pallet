@@ -29,7 +29,7 @@ import (
 	"sync"
 )
 
-type ScheduleTriggerCallback func(trigger *plannerv1alpha1.ScheduleTrigger)
+type ScheduleTriggerCallback func(ctx context.Context, trigger *plannerv1alpha1.ScheduleTrigger)
 
 // ScheduleTriggerReconciler reconciles a ScheduleTrigger object
 type ScheduleTriggerReconciler struct {
@@ -48,22 +48,34 @@ type triggerReference struct {
 }
 
 // transition the trigger to schedule state
-func (r *ScheduleTriggerReconciler) transitionToSchedule(triggerRef *plannerv1alpha1.ScheduleTrigger) {
+func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Context,
+	triggerRef *plannerv1alpha1.ScheduleTrigger) {
 	//lookup the trigger
 	var trigger plannerv1alpha1.ScheduleTrigger
 
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: triggerRef.Name, Namespace: triggerRef.Namespace}, &trigger)
+	ctx, cancel := context.WithCancel(parentCtx)
+
+	err := r.Client.Get(ctx,
+		types.NamespacedName{Name: triggerRef.Name, Namespace: triggerRef.Namespace},
+		&trigger)
+
 	if err != nil {
+		cancel()
 		r.Log.Error(err, "error-transitioning-trigger-to-schedule", "trigger", trigger.Name, "namespace", trigger.Namespace)
 		return
 	}
+
+	cancel()
 
 	if trigger.Spec.State == "Schedule" {
 		return
 	}
 
+	ctx, cancel = context.WithCancel(parentCtx)
+	defer cancel()
+
 	trigger.Spec.State = "Schedule"
-	err = r.Client.Update(context.Background(), &trigger)
+	err = r.Client.Update(ctx, &trigger)
 
 	if err != nil {
 		r.Log.Error(err, "error-updating-trigger", "trigger", trigger.Name, "namespace", trigger.Namespace)
@@ -85,7 +97,9 @@ func (r *ScheduleTriggerReconciler) ScheduleTimerReset(trigger *plannerv1alpha1.
 	ref.timer.Reset(ref.duration)
 }
 
-func (r *ScheduleTriggerReconciler) quietTimer(ref *triggerReference, trigger *plannerv1alpha1.ScheduleTrigger) {
+func (r *ScheduleTriggerReconciler) quietTimer(ref *triggerReference,
+	trigger *plannerv1alpha1.ScheduleTrigger) {
+
 	defer ref.timer.Stop()
 
 	for {
@@ -98,7 +112,11 @@ func (r *ScheduleTriggerReconciler) quietTimer(ref *triggerReference, trigger *p
 		case <-ref.timer.C:
 			r.Log.V(1).Info("quiet-timer-schedule", "trigger", trigger.Name, "namespace", trigger.Namespace)
 
-			r.transitionToSchedule(trigger)
+			ctx, cancel := context.WithCancel(context.Background())
+
+			r.transitionToSchedule(ctx, trigger)
+
+			cancel()
 		}
 	}
 }
@@ -179,11 +197,14 @@ func (r *ScheduleTriggerReconciler) RegisterScheduleTrigger(cb ScheduleTriggerCa
 	}
 }
 
-func (r *ScheduleTriggerReconciler) scheduleTrigger(trigger *plannerv1alpha1.ScheduleTrigger) {
+func (r *ScheduleTriggerReconciler) scheduleTrigger(parentCtx context.Context, trigger *plannerv1alpha1.ScheduleTrigger) {
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
 	for _, cb := range r.triggerCallbacks {
 		if cb != nil {
 			r.Log.V(1).Info("schedule-trigger-invoke", "trigger", trigger.Name)
-			cb(trigger)
+			cb(ctx, trigger)
 		}
 	}
 }
@@ -191,13 +212,17 @@ func (r *ScheduleTriggerReconciler) scheduleTrigger(trigger *plannerv1alpha1.Sch
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduletriggers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduletriggers/status,verbs=get;update;patch
 
-func (r *ScheduleTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log.V(1).Info("schedule-trigger", "trigger", req.NamespacedName.Name, "namespace", req.NamespacedName.Namespace)
 
 	// lookup the trigger being reconcile
 	var trigger plannerv1alpha1.ScheduleTrigger
 
-	if err := r.Client.Get(context.Background(), req.NamespacedName, &trigger); err != nil {
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
+	if err := r.Client.Get(ctx, req.NamespacedName, &trigger); err != nil {
+
 		// delete timer for the trigger
 		r.deleteTimer(req.NamespacedName)
 
@@ -205,7 +230,7 @@ func (r *ScheduleTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if trigger.Spec.State == "Schedule" {
-		r.scheduleTrigger(&trigger)
+		r.scheduleTrigger(ctx, &trigger)
 	}
 
 	r.checkAndAllocateScheduleTimer(&trigger)

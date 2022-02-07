@@ -26,11 +26,13 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3
+	k8s.io/apiserver v0.22.3
 	k8s.io/client-go v0.22.3
 	k8s.io/component-base v0.22.3
 	k8s.io/kube-scheduler v0.22.3 // indirect
 	k8s.io/kubernetes v1.22.3
 	sigs.k8s.io/controller-runtime v0.10.3
+	sigs.k8s.io/descheduler v0.22.0
 )
 
 replace (

@@ -48,9 +48,12 @@ func (a *APIServer) Run() error {
 // BuildSchedulePlan builds a schedule plan based on the podset for the namespace
 func (a *APIServer) BuildSchedulePlan(ctx context.Context, in *api.SchedulePlanRequest) (*api.SchedulePlanResponse, error) {
 	a.Log.Info("build-schedule-plan-request", "request", in)
-	assignments, err := a.Planner.BuildSchedulePlan(in.Namespace, in.PodSet, in.EligibleNodes)
+
+	assignments, err := a.Planner.BuildSchedulePlan(ctx, in.Namespace, in.PodSet,
+		in.ScheduledPod, in.EligibleNodes)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
 	return &api.SchedulePlanResponse{Assignments: assignments}, nil
 }

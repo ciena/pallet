@@ -31,8 +31,8 @@ import (
 
 const (
 	// Name of the scheduling plugin.
-	Name              = "Planner"
-	preFilterStateKey = "PreFilter" + Name
+	Name                      = "PodSetPlanner"
+	plannerAssignmentStateKey = Name + "AssignmentState"
 )
 
 // PodSetPlanner instance state for the the policy scheduling
@@ -46,12 +46,13 @@ type PodSetPlanner struct {
 	triggerClient  *client.ScheduleTriggerClient
 }
 
-type preFilterState struct {
+type plannerAssignmentState struct {
 	node string
 }
 
 var (
 	_ framework.PreFilterPlugin  = &PodSetPlanner{}
+	_ framework.PreScorePlugin   = &PodSetPlanner{}
 	_ framework.ScorePlugin      = &PodSetPlanner{}
 	_ framework.PostFilterPlugin = &PodSetPlanner{}
 )
@@ -127,8 +128,8 @@ func New(
 	return schedulePlanner, nil
 }
 
-func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error) {
-	state, err := cycleState.Read(preFilterStateKey)
+func getAssignmentState(cycleState *framework.CycleState) (*plannerAssignmentState, error) {
+	state, err := cycleState.Read(plannerAssignmentStateKey)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read cycle state: %w", err)
 	}
@@ -137,7 +138,7 @@ func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error
 		return nil, ErrNilAssignmentState
 	}
 
-	assignmentState, ok := state.(*preFilterState)
+	assignmentState, ok := state.(*plannerAssignmentState)
 	if !ok {
 		return nil, fmt.Errorf("%+v convert to node assignment state error: %w",
 			state, ErrInvalidAssignmentState)
@@ -148,33 +149,34 @@ func getPreFilterState(cycleState *framework.CycleState) (*preFilterState, error
 
 // Clone isn't needed for our state data.
 // nolint:ireturn
-func (s *preFilterState) Clone() framework.StateData {
+func (s *plannerAssignmentState) Clone() framework.StateData {
 	return s
 }
 
-func (c *PodSetPlanner) createPreFilterState(
+func (c *PodSetPlanner) createAssignmentState(
 	ctx context.Context,
-	pod *v1.Pod) (*preFilterState, *framework.Status) {
-	allNodes, err := c.handle.SnapshotSharedLister().NodeInfos().List()
-	if err != nil {
-		return nil, framework.AsStatus(err)
-	}
-
-	eligibleNodes := make([]*v1.Node, len(allNodes))
-
-	for i, nodeInfo := range allNodes {
-		eligibleNodes[i] = nodeInfo.Node()
-	}
+	pod *v1.Pod,
+	eligibleNodes []*v1.Node) (*plannerAssignmentState, *framework.Status) {
 
 	if len(eligibleNodes) == 0 {
-		c.log.V(1).Info("pre-filter-no-nodes-eligible")
+		c.log.V(1).Info("create-assignment-state-no-nodes-eligible")
 
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
 
-	node := eligibleNodes[0]
+	nodeNames := make([]string, len(eligibleNodes))
 
-	return &preFilterState{node: node.Name}, framework.NewStatus(framework.Success)
+	for i, nodeInfo := range eligibleNodes {
+		nodeNames[i] = nodeInfo.Name
+	}
+
+	selectedNode, err := c.findFit(ctx, pod, nodeNames)
+
+	if err != nil {
+		return nil, framework.AsStatus(err)
+	}
+
+	return &plannerAssignmentState{node: selectedNode}, framework.NewStatus(framework.Success)
 }
 
 // Name returns the name of the scheduler.
@@ -184,32 +186,52 @@ func (c *PodSetPlanner) Name() string {
 
 // PreFilter pre-filters the pods to be placed.
 func (c *PodSetPlanner) PreFilter(
-	parentCtx context.Context,
-	state *framework.CycleState,
+	_ context.Context,
+	_ *framework.CycleState,
 	pod *v1.Pod) *framework.Status {
 	c.log.V(1).Info("prefilter", "pod", pod.Name)
 
-	//nolint: gomnd
-	ctx, cancel := context.WithTimeout(parentCtx, c.options.CallTimeout*2)
-	assignmentState, status := c.createPreFilterState(ctx, pod)
-
-	cancel()
-
-	if !status.IsSuccess() {
-
-		return status
-	}
-
-	c.log.V(1).Info("prefilter-state-assignment", "pod", pod.Name, "node", assignmentState.node)
-	state.Write(preFilterStateKey, assignmentState)
-
-	return status
+	return framework.NewStatus(framework.Success)
 }
 
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
 // nolint:ireturn
 func (c *PodSetPlanner) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
+}
+
+// PreScore uses the filtered node list and selects the node for the pod using the planner
+func (c *PodSetPlanner) PreScore(
+	parentCtx context.Context,
+	state *framework.CycleState,
+	pod *v1.Pod,
+	nodes []*v1.Node) *framework.Status {
+
+	c.log.V(1).Info("pre-score", "pod", pod.Name, "nodes", len(nodes))
+
+	//nolint: gomnd
+	ctx, cancel := context.WithTimeout(parentCtx, c.options.CallTimeout*2)
+	defer cancel()
+
+	assignmentState, status := c.createAssignmentState(ctx, pod, nodes)
+
+	if !status.IsSuccess() {
+
+		// check if the pod does not belong to a podset, or no planners found.
+		// in that case, we allow the default scheduler to schedule the pod
+		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) ||
+			status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
+
+			return framework.NewStatus(framework.Success)
+		}
+
+		return framework.NewStatus(framework.Unschedulable)
+	}
+
+	c.log.V(1).Info("prescore-state-assignment", "pod", pod.Name, "node", assignmentState.node)
+	state.Write(plannerAssignmentStateKey, assignmentState)
+
+	return status
 }
 
 // Score scores the eligible nodes.
@@ -219,7 +241,7 @@ func (c *PodSetPlanner) Score(
 	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
 	c.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
-	assignmentState, err := getPreFilterState(state)
+	assignmentState, err := getAssignmentState(state)
 	if err != nil {
 		return framework.MinNodeScore, framework.NewStatus(framework.Success)
 	}
@@ -245,7 +267,7 @@ func (c *PodSetPlanner) PostFilter(ctx context.Context,
 	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
 	c.log.V(1).Info("post-filter", "pod", pod.Name)
 
-	assignmentState, err := getPreFilterState(state)
+	assignmentState, err := getAssignmentState(state)
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}
@@ -287,7 +309,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	// pod is in the planspec.
 	// check if the node is in the eligible filtered list
 	// if not, we hit the planner again to reallocate pod
-	// the new eligible set
+	// with the new eligible set
 
 	if planStatus {
 
@@ -301,8 +323,12 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 
 	}
 
+	p.log.V(1).Info("planner-lookup", "pod", pod.Name, "namespace", pod.Namespace,
+		"podset", podset)
+
 	// get to the planner to place the pod
-	planners, err := p.plannerService.Lookup(parentCtx, pod.Namespace, podset, eligibleNodes)
+	planners, err := p.plannerService.Lookup(parentCtx, pod.Namespace, podset,
+		pod.Name, eligibleNodes)
 	if err != nil {
 		p.log.V(1).Info("could-not-find-planner", "pod", pod.Name, "podset", podset)
 
@@ -321,7 +347,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 		return "", ErrNotFound
 	}
 
-	err = p.plannerService.CreateOrUpdate(parentCtx, pod, podset, selectedNode)
+	err = p.plannerService.CreateOrUpdate(parentCtx, pod, podset, assignments)
 	if err != nil {
 		return "", err
 	}
