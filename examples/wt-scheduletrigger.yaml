@@ -1,0 +1,10 @@
+apiVersion: planner.ciena.io/v1alpha1
+kind: ScheduleTrigger 
+metadata: 
+    namespace: default
+    name: customtrigger 
+    labels: 
+        planner.ciena.io/pod-set: planner-podset
+        planner.ciena.io/quiet-time: 2m0s
+spec: 
+    state: Planning
