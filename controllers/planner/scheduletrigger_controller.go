@@ -174,7 +174,6 @@ func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plann
 
 	if ref, ok := r.scheduleTriggerMap[key]; !ok {
 		timer := time.NewTimer(duration)
-		timer.Stop()
 
 		ref = &triggerReference{timer: timer, duration: duration, timerQuit: make(chan struct{})}
 		r.scheduleTriggerMap[key] = ref
