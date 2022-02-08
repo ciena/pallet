@@ -74,11 +74,13 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 	podSetLabel := fmt.Sprintf("planner.ciena.io/%s", podset)
 	defaultPodSetLabel := "planner.ciena.io/default"
 
+	labels := fmt.Sprintf("%s,%s", podSetLabel, defaultPodSetLabel)
+
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
 	svcs, err := s.handle.ClientSet().CoreV1().Services("").List(ctx, metav1.ListOptions{
-		LabelSelector: podSetLabel,
+		LabelSelector: labels,
 	})
 	if err != nil {
 		return nil, err
