@@ -128,6 +128,7 @@ func main() {
 	if err = (&controllers.SchedulePlanReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("schedule-plan"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SchedulePlan")
 		os.Exit(1)
@@ -136,6 +137,7 @@ func main() {
 	if err = (&controllers.ScheduleTriggerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("schedule-trigger"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ScheduleTrigger")
 		os.Exit(1)

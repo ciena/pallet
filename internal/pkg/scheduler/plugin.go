@@ -295,7 +295,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 
 	// pod not assignable if trigger is not active
 	if trigger.Spec.State != "Schedule" {
-		p.log.V(1).Info("trigger-not-active", trigger.Name, "state", trigger.Spec.State, "podset", podset)
+		p.log.V(1).Info("trigger-not-active", "trigger", trigger.Name, "state", trigger.Spec.State, "podset", podset)
 
 		return "", ErrPodNotAssignable
 	}
