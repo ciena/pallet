@@ -108,6 +108,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: podset-planner
+  namespace: planner-system
   labels:
     planner.ciena.io/default: enabled
 spec:
@@ -119,9 +120,6 @@ spec:
       name: grpc
   selector:
     app: podset-planner
-    app.kubernetes.io/name: podset-planner
-    app.kubernetes.io/component: planner
-    app.kubernetes.io/part-of: planner
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -12,23 +12,24 @@ import (
 )
 
 var (
-	localSchemeBuilder = runtime.SchemeBuilder{
-		plannerv1alpha1.AddToScheme,
-	}
-
-	Scheme = runtime.NewScheme()
+	PlannerScheme = runtime.NewScheme()
+	TriggerScheme = runtime.NewScheme()
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(Scheme))
-	utilruntime.Must(localSchemeBuilder.AddToScheme(Scheme))
+	schemes := []*runtime.Scheme{PlannerScheme, TriggerScheme}
+
+	for _, scheme := range schemes {
+		utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+		utilruntime.Must(plannerv1alpha1.AddToScheme(scheme))
+	}
 }
 
 func NewSchedulePlannerClient(config *rest.Config, log logr.Logger) (*SchedulePlannerClient, error) {
 
 	genericClient, err := ctlrclient.New(config,
 		ctlrclient.Options{
-			Scheme: Scheme,
+			Scheme: PlannerScheme,
 		})
 
 	if err != nil {
@@ -41,7 +42,7 @@ func NewSchedulePlannerClient(config *rest.Config, log logr.Logger) (*SchedulePl
 func NewScheduleTriggerClient(config *rest.Config, log logr.Logger) (*ScheduleTriggerClient, error) {
 	genericClient, err := ctlrclient.New(config,
 		ctlrclient.Options{
-			Scheme: Scheme,
+			Scheme: TriggerScheme,
 		})
 
 	if err != nil {
