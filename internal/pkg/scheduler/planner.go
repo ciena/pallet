@@ -68,19 +68,16 @@ func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 	return nil
 }
 
-func (s *PlannerService) Lookup(parentCtx context.Context,
-	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error) {
-
-	podSetLabel := fmt.Sprintf("planner.ciena.io/%s", podset)
-	defaultPodSetLabel := "planner.ciena.io/default"
-
-	labels := fmt.Sprintf("%s,%s", podSetLabel, defaultPodSetLabel)
+func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
+	labelSelector string,
+	namespace, podset, scheduledPod string,
+	eligibleNodes []string) (PlannerList, error) {
 
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
 	svcs, err := s.handle.ClientSet().CoreV1().Services("").List(ctx, metav1.ListOptions{
-		LabelSelector: labels,
+		LabelSelector: labelSelector,
 	})
 	if err != nil {
 		return nil, err
@@ -91,51 +88,39 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 	}
 
 	var planners PlannerList
-	var defaultPlanners PlannerList
 
 	for _, svc := range svcs.Items {
-		for k, v := range svc.Labels {
-			switch {
-			case k == podSetLabel && v == "enabled":
 
-				planners = append(planners, &Planner{
-					Service:       svc,
-					Namespace:     namespace,
-					Podset:        podset,
-					ScheduledPod:  scheduledPod,
-					EligibleNodes: eligibleNodes,
-					Log:           s.log.WithName("podset-planner"),
-					CallTimeout:   s.callTimeout,
-					DialOptions: []grpc.DialOption{
-						grpc.WithInsecure(),
-					},
-				})
-
-			case k == defaultPodSetLabel && v == "enabled":
-
-				defaultPlanners = append(defaultPlanners, &Planner{
-					Service:       svc,
-					Namespace:     namespace,
-					Podset:        podset,
-					ScheduledPod:  scheduledPod,
-					EligibleNodes: eligibleNodes,
-					Log:           s.log.WithName("default-podset-planner"),
-					CallTimeout:   s.callTimeout,
-					DialOptions: []grpc.DialOption{
-						grpc.WithInsecure(),
-					},
-				})
-			}
-		}
+		planners = append(planners, &Planner{
+			Service:       svc,
+			Namespace:     namespace,
+			Podset:        podset,
+			ScheduledPod:  scheduledPod,
+			EligibleNodes: eligibleNodes,
+			Log:           s.log.WithName("podset-planner"),
+			CallTimeout:   s.callTimeout,
+			DialOptions: []grpc.DialOption{
+				grpc.WithInsecure(),
+			},
+		})
 	}
 
-	if len(planners) == 0 {
+	return planners, nil
+}
 
-		if len(defaultPlanners) == 0 {
-			return nil, ErrNoPlannersFound
-		}
+func (s *PlannerService) Lookup(parentCtx context.Context,
+	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error) {
 
-		return defaultPlanners, nil
+	podSetLabel := fmt.Sprintf("planner.ciena.io/%s=enabled", podset)
+
+	planners, err := s.lookupWithLabelSelector(parentCtx, podSetLabel,
+		namespace, podset, scheduledPod, eligibleNodes)
+	if err != nil {
+		defaultPodSetLabel := "planner.ciena.io/default=enabled"
+
+		// lookup default planners
+		return s.lookupWithLabelSelector(parentCtx, defaultPodSetLabel,
+			namespace, podset, scheduledPod, eligibleNodes)
 	}
 
 	return planners, nil
