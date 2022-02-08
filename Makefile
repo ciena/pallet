@@ -240,13 +240,16 @@ deploy-planner:
 	sed -e "s;IMAGE_SPEC;$(PLANNER_IMG);g" ./deploy/podset-planner.yaml | kubectl apply -f -
 
 .PHONY: undeploy undeploy-manager undeploy-scheduler undeploy-planner
-undeploy: undeploy-scheduler undeploy-manager
+undeploy: undeploy-scheduler undeploy-planner undeploy-manager
 
 undeploy-manager: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
 undeploy-scheduler:
 	kubectl delete  --ignore-not-found=$(ignore-not-found) -f ./deploy/podset-planner-scheduler.yaml
+
+undeploy-planner:
+	kubectl delete  --ignore-not-found=$(ignore-not-found) -f ./deploy/podset-planner.yaml
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 .PHONY: controller-gen
