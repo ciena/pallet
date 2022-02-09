@@ -179,19 +179,28 @@ func initInformers(clientset *kubernetes.Clientset,
 }
 
 func (p *PodSetPlanner) handlePodUpdate(oldPod *v1.Pod, newPod *v1.Pod) {
+	p.log.V(1).Info("schedule-planner-pod-update", "old-pod", oldPod.Name, "new-pod", newPod.Name)
+
 	p.Lock()
 	defer p.Unlock()
 
 	if oldPod.Status.Phase != v1.PodRunning && newPod.Status.Phase == v1.PodRunning {
 		delete(p.podToNodeMap, ktypes.NamespacedName{Name: newPod.Name, Namespace: newPod.Namespace})
 	} else if oldPod.GetDeletionTimestamp() == nil && newPod.GetDeletionTimestamp() != nil {
-		p.handlePodDelete(newPod)
+		p.handlePodDeleteWithLock(newPod)
 	}
 }
 
 func (p *PodSetPlanner) handlePodDelete(pod *v1.Pod) {
+	p.log.V(1).Info("schedule-planner-pod-delete", "pod", pod.Name)
+
 	p.Lock()
 	defer p.Unlock()
+
+	p.handlePodDeleteWithLock(pod)
+}
+
+func (p *PodSetPlanner) handlePodDeleteWithLock(pod *v1.Pod) {
 	delete(p.podToNodeMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
 }
 

@@ -94,7 +94,10 @@ func New(
 
 	pluginLogger := log.WithName("scheduling-plugin")
 
-	plannerClient, err := client.NewSchedulePlannerClient(handle.KubeConfig(),
+	restConfig := *handle.KubeConfig()
+	restConfig.ContentType = "application/json"
+
+	plannerClient, err := client.NewSchedulePlannerClient(&restConfig,
 		pluginLogger.WithName("planner-client"))
 	if err != nil {
 		pluginLogger.Error(err, "error-initializing-planner-client")
@@ -102,7 +105,7 @@ func New(
 		return nil, err
 	}
 
-	triggerClient, err := client.NewScheduleTriggerClient(handle.KubeConfig(),
+	triggerClient, err := client.NewScheduleTriggerClient(&restConfig,
 		pluginLogger.WithName("trigger-client"))
 	if err != nil {
 		pluginLogger.Error(err, "error-initializing-trigger-client")
