@@ -76,6 +76,7 @@ func NewPlanner(options PlannerOptions,
 	planner.predicateHandler = predicateHandler
 
 	var addFunc func(interface{})
+	var deleteFunc func(obj interface{})
 
 	updateFunc := func(oldObj, newObj interface{}) {
 		oldPod, ok := oldObj.(*v1.Pod)
@@ -89,15 +90,6 @@ func NewPlanner(options PlannerOptions,
 		}
 
 		planner.handlePodUpdate(oldPod, newPod)
-	}
-
-	deleteFunc := func(obj interface{}) {
-		pod, ok := obj.(*v1.Pod)
-		if !ok {
-			return
-		}
-
-		planner.handlePodDelete(pod)
 	}
 
 	planner.nodeLister = initInformers(
@@ -195,8 +187,6 @@ func initInformers(clientset *kubernetes.Clientset,
 }
 
 func (p *PodSetPlanner) handlePodUpdate(oldPod *v1.Pod, newPod *v1.Pod) {
-	p.log.V(1).Info("schedule-planner-pod-update", "old-pod", oldPod.Name, "new-pod", newPod.Name)
-
 	p.Lock()
 	defer p.Unlock()
 
