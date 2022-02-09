@@ -1,0 +1,17 @@
+syntax = "proto3";
+package planner;
+
+message SchedulePlanRequest {
+    string namespace = 1;
+    string podSet = 2;
+    string scheduledPod = 3;
+    repeated string eligibleNodes = 4;
+}
+
+message SchedulePlanResponse {
+    map<string, string> assignments = 1;
+}
+
+service SchedulePlanner {
+   rpc BuildSchedulePlan(SchedulePlanRequest) returns (SchedulePlanResponse);
+}

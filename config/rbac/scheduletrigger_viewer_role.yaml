@@ -1,0 +1,20 @@
+# permissions for end users to view scheduletriggers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scheduletrigger-viewer-role
+rules:
+- apiGroups:
+  - planner.ciena.io
+  resources:
+  - scheduletriggers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - planner.ciena.io
+  resources:
+  - scheduletriggers/status
+  verbs:
+  - get
