@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/ciena/outbound/internal/pkg/client"
 	"github.com/ciena/outbound/internal/pkg/parallelize"
 	"github.com/ciena/outbound/internal/pkg/planner"
 	"github.com/ciena/outbound/pkg/version"
@@ -33,35 +34,40 @@ import (
 )
 
 type configSpec struct {
-	KubeConfig        string
-	Listen            string
-	ShowVersion       bool
-	ShowVersionAsJSON bool
-	Debug             bool
-	CallTimeout       time.Duration
-	Parallelism       int
+	KubeConfig         string
+	Listen             string
+	ShowVersion        bool
+	ShowVersionAsJSON  bool
+	Debug              bool
+	CallTimeout        time.Duration
+	Parallelism        int
+	UpdateWorkerPeriod time.Duration
 }
 
-func k8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
+func getClients(kubeconfig string,
+	log logr.Logger) (*kubernetes.Clientset, *client.SchedulePlannerClient, error) {
+
 	var config *rest.Config
 	var err error
 
 	if kubeconfig == "" {
 		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		if config, err = clientcmd.BuildConfigFromFlags("", kubeconfig); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return clientset, nil
+	plannerClient, err := client.NewSchedulePlannerClient(config, log.WithName("planner-client"))
+
+	return clientset, plannerClient, nil
 }
 
 func main() {
@@ -76,6 +82,10 @@ func main() {
 	flag.DurationVar(&config.CallTimeout,
 		"call-timeout", time.Second*15,
 		"GRPC call timeout")
+	flag.DurationVar(&config.UpdateWorkerPeriod,
+		"update-worker-period", time.Second*15,
+		"The update period to retry resource updates on failures")
+
 	flag.IntVar(&config.Parallelism,
 		"paralleism", parallelize.DefaultParallelism,
 		"Parallelism factor to run filter predicates to find eligible nodes for a pod")
@@ -116,17 +126,19 @@ func main() {
 		log = zapr.NewLogger(zapLog)
 	}
 
-	clientset, err := k8sClient(config.KubeConfig)
+	k8sClient, plannerClient, err := getClients(config.KubeConfig, log.WithName("client"))
 	if err != nil {
-		log.Error(err, "Error initializing k8s client interface")
+		log.Error(err, "Error initializing k8s and planner client interface")
 		os.Exit(1)
 	}
 
 	podsetPlanner, err := planner.NewPlanner(planner.PlannerOptions{
-		CallTimeout: config.CallTimeout,
-		Parallelism: config.Parallelism,
+		CallTimeout:        config.CallTimeout,
+		Parallelism:        config.Parallelism,
+		UpdateWorkerPeriod: config.UpdateWorkerPeriod,
 	},
-		clientset,
+		k8sClient,
+		plannerClient,
 		log.WithName("planner"),
 	)
 

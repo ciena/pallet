@@ -3,16 +3,19 @@ package planner
 import (
 	"context"
 	"fmt"
+	"github.com/ciena/outbound/internal/pkg/client"
 	"github.com/ciena/outbound/internal/pkg/podpredicates"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	ktypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"math/rand"
 	"sync"
 	"time"
@@ -25,21 +28,29 @@ type PodSetPlanner struct {
 	quit             chan struct{}
 	nodeLister       listersv1.NodeLister
 	podToNodeMap     map[ktypes.NamespacedName]string
+	updateQueue      workqueue.RateLimitingInterface
 	predicateHandler *podpredicates.PredicateHandler
+	plannerClient    *client.SchedulePlannerClient
 	sync.Mutex
 }
 
 type PlannerOptions struct {
-	CallTimeout time.Duration
-	Parallelism int
+	CallTimeout        time.Duration
+	Parallelism        int
+	UpdateWorkerPeriod time.Duration
 }
 
 type PodPlannerInfo struct {
 	EligibleNodes []string
 }
 
+type workWrapper struct {
+	work func() error
+}
+
 func NewPlanner(options PlannerOptions,
 	clientset *kubernetes.Clientset,
+	plannerClient *client.SchedulePlannerClient,
 	log logr.Logger) (*PodSetPlanner, error) {
 
 	planner := &PodSetPlanner{
@@ -48,6 +59,9 @@ func NewPlanner(options PlannerOptions,
 		log:          log,
 		quit:         make(chan struct{}),
 		podToNodeMap: make(map[ktypes.NamespacedName]string),
+		updateQueue: workqueue.NewRateLimitingQueue(
+			workqueue.DefaultControllerRateLimiter()),
+		plannerClient: plannerClient,
 	}
 
 	predicateHandler, err := podpredicates.New(
@@ -93,6 +107,8 @@ func NewPlanner(options PlannerOptions,
 		addFunc,
 		updateFunc,
 		deleteFunc)
+
+	go planner.listenForUpdateEvents()
 
 	return planner, nil
 }
@@ -202,6 +218,63 @@ func (p *PodSetPlanner) handlePodDelete(pod *v1.Pod) {
 
 func (p *PodSetPlanner) handlePodDeleteWithLock(pod *v1.Pod) {
 	delete(p.podToNodeMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
+
+	p.removePodFromPlanner(pod)
+}
+
+func (p *PodSetPlanner) removePodFromPlanner(pod *v1.Pod) {
+	podset := ""
+
+	for k, v := range pod.Labels {
+
+		if k == "planner.ciena.io/pod-set" {
+			podset = v
+		}
+	}
+
+	if podset == "" {
+		return
+	}
+
+	name, namespace := pod.Name, pod.Namespace
+
+	doUpdate := func() error {
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		updateFailed, err := p.plannerClient.Delete(ctx, name,
+			namespace, podset)
+
+		if err == nil {
+			p.log.V(1).Info("planner-delete",
+				"pod", name, "namespace", namespace,
+				"podset", podset)
+
+			return nil
+		}
+
+		if !updateFailed {
+			p.log.Error(err, "error-deleting-planner",
+				"pod", name, "namespace", namespace, "podset", podset)
+
+			return nil
+		}
+
+		p.log.Error(err, "planner-update-will-be-retried",
+			"pod", name, "namespace", namespace, "podset", podset)
+
+		return err
+	}
+
+	err := doUpdate()
+
+	if err == nil {
+		return
+	}
+
+	// retry update with rate limiter
+	p.updateQueue.AddRateLimited(&workWrapper{work: doUpdate})
 }
 
 func (p *PodSetPlanner) FindNodeLister(node string) (*v1.Node, error) {
@@ -221,6 +294,53 @@ func (p *PodSetPlanner) FindNodeLister(node string) (*v1.Node, error) {
 
 func (p *PodSetPlanner) Stop() {
 	close(p.quit)
+}
+
+func (p *PodSetPlanner) processUpdate(item interface{}) {
+	forgetItem := true
+
+	defer func() {
+
+		if forgetItem {
+			p.updateQueue.Forget(item)
+		}
+	}()
+
+	workItem, ok := item.(*workWrapper)
+	if !ok {
+		return
+	}
+
+	if err := workItem.work(); err != nil {
+		forgetItem = false
+
+		p.log.V(1).Info("planner-update-work-failed", "numrequeues", p.updateQueue.NumRequeues(item))
+
+		p.updateQueue.AddRateLimited(item)
+	}
+}
+
+func (p *PodSetPlanner) processUpdateEvents() {
+	item, quit := p.updateQueue.Get()
+	if quit {
+		return
+	}
+
+	defer p.updateQueue.Done(item)
+
+	p.processUpdate(item)
+}
+
+func (p *PodSetPlanner) updateWorker() {
+	p.processUpdateEvents()
+}
+
+func (p *PodSetPlanner) listenForUpdateEvents() {
+	defer p.updateQueue.ShutDown()
+
+	go wait.Until(p.updateWorker, p.options.UpdateWorkerPeriod, p.quit)
+
+	<-p.quit
 }
 
 func (p *PodSetPlanner) getEligibleNodesForPod(parentCtx context.Context,
