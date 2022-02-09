@@ -279,7 +279,7 @@ func (p *PodSetPlanner) FindNodeLister(node string) (*v1.Node, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Cound not find node lister instance for node %s", node)
+	return nil, fmt.Errorf("Cound not find node lister instance for node %s: %w", node, ErrNotFound)
 }
 
 func (p *PodSetPlanner) Stop() {
@@ -486,7 +486,7 @@ func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 // called with constraintpolicymutex held
 func (p *PodSetPlanner) getPodNode(pod *v1.Pod) (string, error) {
 	if node, ok := p.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
-		return "", fmt.Errorf("Cannot find pod %s node", pod.Name)
+		return "", fmt.Errorf("Cannot find pod %s node: %w", pod.Name, ErrPodNotAssigned)
 	} else {
 		return node, nil
 	}
@@ -520,14 +520,14 @@ func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Pod ip %s not found in node lister cache", pod.Status.HostIP)
+	return "", fmt.Errorf("Pod ip %s not found in node lister cache: %w", pod.Status.HostIP, ErrNotFound)
 }
 
 func (p *PodSetPlanner) findFit(_ context.Context, pod *v1.Pod, eligibleNodes []string) (*v1.Node, error) {
 	if len(eligibleNodes) == 0 {
 		p.log.V(1).Info("no-eligible-nodes-found", "pod", pod.Name)
 
-		return nil, fmt.Errorf("no-eligible-nodes-found-for-pod-%s", pod.Name)
+		return nil, fmt.Errorf("no-eligible-nodes-found-for-pod-%s: %w", pod.Name, ErrNoNodesFound)
 	}
 
 	selectedNode := eligibleNodes[rand.Intn(len(eligibleNodes))]
