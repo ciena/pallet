@@ -61,8 +61,8 @@ func (c *ScheduleTriggerClient) List(ctx context.Context,
 // Get is used to get the schedule trigger instance by namespace and podset.
 func (c *ScheduleTriggerClient) Get(ctx context.Context,
 	namespace,
-	podset string) (*plannerv1alpha1.ScheduleTrigger, error) {
-
+	podset string,
+) (*plannerv1alpha1.ScheduleTrigger, error) {
 	triggers, err := c.List(ctx, namespace, map[string]string{"planner.ciena.io/pod-set": podset})
 	if err != nil {
 		c.Log.Error(err, "error-getting-trigger", "namespace", namespace, "podset", podset)
@@ -82,8 +82,8 @@ func (c *ScheduleTriggerClient) Get(ctx context.Context,
 func (c *ScheduleTriggerClient) Update(ctx context.Context,
 	namespace,
 	podset,
-	state string) error {
-
+	state string,
+) error {
 	trigger, err := c.Get(ctx, namespace, podset)
 	if err != nil {
 		return err

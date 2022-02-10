@@ -213,8 +213,8 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 func (c *SchedulePlannerClient) CheckIfPodPresent(ctx context.Context,
 	namespace,
 	podset,
-	podName string) (bool, *plannerv1alpha1.PlanSpec, error) {
-
+	podName string,
+) (bool, *plannerv1alpha1.PlanSpec, error) {
 	plan, err := c.Get(ctx, namespace, podset)
 	if err != nil {
 		return false, nil, err

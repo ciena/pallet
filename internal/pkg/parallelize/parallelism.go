@@ -18,8 +18,9 @@ package parallelize
 
 import (
 	"context"
-	"k8s.io/client-go/util/workqueue"
 	"math"
+
+	"k8s.io/client-go/util/workqueue"
 )
 
 const (

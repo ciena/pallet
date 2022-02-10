@@ -139,8 +139,8 @@ func (p *PredicateHandler) getExtensionPoints() []extensionPoint {
 func (p *PredicateHandler) RunFilterPredicates(ctx context.Context,
 	handle PodSetHandle,
 	pod *v1.Pod,
-	node *v1.Node) *framework.Status {
-
+	node *v1.Node,
+) *framework.Status {
 	for _, filterPred := range p.filterPredicates {
 		st := filterPred.Filter(ctx, handle, pod, node)
 		if !st.IsSuccess() {

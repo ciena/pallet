@@ -147,8 +147,8 @@ func initInformers(clientset *kubernetes.Clientset,
 	quit chan struct{},
 	add func(interface{}),
 	update func(interface{}, interface{}),
-	del func(interface{})) listersv1.NodeLister {
-
+	del func(interface{}),
+) listersv1.NodeLister {
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 	nodeInformer := factory.Core().V1().Nodes()
 
