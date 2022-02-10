@@ -26,7 +26,7 @@ type SchedulePlanSpec struct {
 	Plan []PlanSpec `json:"plan"`
 }
 
-// SchedulePlanStatus defines the plan status for a pod-set
+// SchedulePlanStatus defines the plan status for a pod-set.
 type SchedulePlanStatus struct{}
 
 // PlanSpec defines a plan spec for pod to node assignments for a pod-set.

@@ -18,7 +18,6 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
-//Planner is used to save information used while talking to a podset planner service.
 type Planner struct {
 	Service       v1.Service
 	Namespace     string
@@ -30,10 +29,10 @@ type Planner struct {
 	DialOptions   []grpc.DialOption
 }
 
-//PlannerList is a list of references to Planner.
+// PlannerList is a list of references to Planner.
 type PlannerList []*Planner
 
-//PlannerService is used to lookup a podset planner service.
+// PlannerService is used to lookup a podset planner service.
 type PlannerService struct {
 	clnt        *client.SchedulePlannerClient
 	handle      framework.Handle
@@ -46,18 +45,16 @@ type planReward struct {
 	assignments map[string]string
 }
 
-//NewPlannerService creates a planner service instance to talk to an external podset planner service.
 func NewPlannerService(clnt *client.SchedulePlannerClient, handle framework.Handle,
-	log logr.Logger, callTimeout time.Duration) *PlannerService {
-
+	log logr.Logger, callTimeout time.Duration,
+) *PlannerService {
 	return &PlannerService{clnt: clnt, handle: handle, log: log, callTimeout: callTimeout}
 }
 
-//CreateOrUpdate is used to create or update the assignments for the podset to the schedule plan spec.
 func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 	podset string,
-	assignments map[string]string) error {
-
+	assignments map[string]string,
+) error {
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
@@ -79,7 +76,6 @@ func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 	namespace, podset, scheduledPod string,
 	eligibleNodes []string) (PlannerList, error,
 ) {
-
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
@@ -116,10 +112,10 @@ func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 	return planners, nil
 }
 
-//Lookup is used to lookup a podset planner service.
+// Lookup is used to lookup a podset planner service.
 func (s *PlannerService) Lookup(parentCtx context.Context,
-	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error) {
-
+	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error,
+) {
 	podSetLabel := fmt.Sprintf("planner.ciena.io/%s=enabled", podset)
 
 	planners, err := s.lookupWithLabelSelector(parentCtx, podSetLabel,
@@ -135,10 +131,9 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 	return planners, nil
 }
 
-//Invoke is used to invoke all the podset planners.
+// Invoke is used to invoke all the podset planners.
 func (planners PlannerList) Invoke(parentCtx context.Context,
 	trigger *plannerv1alpha1.ScheduleTrigger) (map[string]string, error) {
-
 	//nolint:prealloc
 	var planRewards []*planReward
 
@@ -176,14 +171,12 @@ func (planners PlannerList) Invoke(parentCtx context.Context,
 }
 
 func computePlanReward(_ *plannerv1alpha1.ScheduleTrigger, assignments map[string]string) *planReward {
-
 	//nolint:gomnd
 	return &planReward{assignments: assignments, reward: rand.Intn(100) + 1}
 }
 
-//BuildSchedulePlan is used to build a podset assignment plan by talking to the podset planner service.
+// BuildSchedulePlan is used to build a podset assignment plan by talking to the podset planner service.
 func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]string, error) {
-
 	p.Log.V(1).Info("build-schedule-plan", "namespace", p.Namespace,
 		"podset", p.Podset,
 		"scheduledPod", p.ScheduledPod)

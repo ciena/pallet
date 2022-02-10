@@ -18,18 +18,24 @@ package planner
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-	"time"
 )
 
 // ScheduleTriggerCallback is registered and invoked on updates.
 type ScheduleTriggerCallback func(ctx context.Context, trigger *plannerv1alpha1.ScheduleTrigger)
+
+const (
+	Planning = "Planning"
+	Schedule = "Schedule"
+)
 
 // ScheduleTriggerReconciler reconciles a ScheduleTrigger object.
 type ScheduleTriggerReconciler struct {
@@ -49,8 +55,8 @@ type triggerReference struct {
 
 // transition the trigger to schedule state.
 func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Context,
-	triggerRef *plannerv1alpha1.ScheduleTrigger) {
-
+	triggerRef *plannerv1alpha1.ScheduleTrigger,
+) {
 	var trigger plannerv1alpha1.ScheduleTrigger
 
 	ctx, cancel := context.WithCancel(parentCtx)
@@ -67,14 +73,14 @@ func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Conte
 
 	cancel()
 
-	if trigger.Spec.State == "Schedule" {
+	if trigger.Spec.State == Schedule {
 		return
 	}
 
 	ctx, cancel = context.WithCancel(parentCtx)
 	defer cancel()
 
-	trigger.Spec.State = "Schedule"
+	trigger.Spec.State = Schedule
 	err = r.Client.Update(ctx, &trigger)
 
 	if err != nil {
@@ -233,7 +239,7 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 
-	if trigger.Spec.State == "Schedule" {
+	if trigger.Spec.State == Schedule {
 		r.scheduleTrigger(ctx, &trigger)
 	}
 

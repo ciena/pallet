@@ -17,20 +17,17 @@ type podSetHandlerImpl struct {
 var _ podpredicates.PodSetHandle = &podSetHandlerImpl{}
 
 func newPodSetHandler(planner *PodSetPlanner, pods []*v1.Pod) *podSetHandlerImpl {
-
 	return &podSetHandlerImpl{planner: planner, pods: pods}
 }
 
 // ClientSet returns the k8s clientset.
 // nolint:ireturn
 func (ps *podSetHandlerImpl) ClientSet() kubernetes.Interface {
-
 	return ps.planner.clientset
 }
 
 // List returns all the pods for the podset assigned to the node.
 func (ps *podSetHandlerImpl) List(_ context.Context, node *v1.Node) ([]*v1.Pod, error) {
-
 	pods := []*v1.Pod{}
 
 	for _, pod := range ps.pods {

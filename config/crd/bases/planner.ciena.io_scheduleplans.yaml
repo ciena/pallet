@@ -62,7 +62,7 @@ spec:
             - plan
             type: object
           status:
-            description: SchedulePlanStatus defines the plan status for a pod-set
+            description: SchedulePlanStatus defines the plan status for a pod-set.
             type: object
         required:
         - spec

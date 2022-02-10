@@ -56,7 +56,6 @@ func NewPlanner(options PlannerOptions,
 	clientset *kubernetes.Clientset,
 	plannerClient *client.SchedulePlannerClient,
 	log logr.Logger) (*PodSetPlanner, error) {
-
 	planner := &PodSetPlanner{
 		options:      options,
 		clientset:    clientset,
@@ -317,7 +316,6 @@ func (p *PodSetPlanner) getEligibleNodesForPod(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	pod *v1.Pod,
 	allEligibleNodes []*v1.Node) ([]string, error) {
-
 	filteredNodes := p.predicateHandler.FindNodesThatPassFilters(parentCtx,
 		podSetHandler,
 		pod,
@@ -340,13 +338,12 @@ func (p *PodSetPlanner) getEligibleNodes(parentCtx context.Context,
 	pod *v1.Pod,
 	allEligibleNodes []*v1.Node,
 	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo) ([]string, error) {
-
 	plannerInfo, ok := schedulingMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
 	if ok {
 		return plannerInfo.EligibleNodes, nil
 	}
 
-	//get and load eligible nodes for pod
+	// get and load eligible nodes for pod
 	eligibleNodes, err := p.getEligibleNodesForPod(parentCtx, podSetHandler, pod, allEligibleNodes)
 	if err != nil {
 		return nil, err
@@ -384,7 +381,6 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 
 	for _, pod := range podList {
 		if pod.Status.Phase == v1.PodFailed || pod.DeletionTimestamp != nil {
-
 			continue
 		}
 
@@ -397,7 +393,6 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 
 		eligibleNodes, err := p.getEligibleNodes(parentCtx, podSetHandler,
 			pod, allEligibleNodes, schedulingMap)
-
 		if err != nil {
 			p.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
 			failedPodList = append(failedPodList, pod)
@@ -434,8 +429,8 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 	namespace, podSet string,
 	scheduledPod string,
-	eligibleNodes []string) (map[string]string, error) {
-
+	eligibleNodes []string) (map[string]string, error,
+) {
 	p.log.V(1).Info("build-schedule-plan", "podset", podSet, "namespace", namespace)
 
 	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout)
@@ -512,7 +507,6 @@ func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 
 	for _, node := range nodes {
 		for i := range node.Status.Addresses {
-
 			if node.Status.Addresses[i].Address == pod.Status.HostIP {
 				return node.Name, nil
 			}

@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	// ErrNoTriggersFound is returned when no triggers are found.
-	ErrNoTriggersFound = errors.New("no triggers found")
-)
+// ErrNoTriggersFound is returned when no triggers are found.
+var ErrNoTriggersFound = errors.New("no triggers found")
 
 // ScheduleTriggerClient saves schedule trigger client specific info.
 type ScheduleTriggerClient struct {
@@ -61,10 +60,9 @@ func (c *ScheduleTriggerClient) Get(ctx context.Context, namespace, podset strin
 
 // Update updates the schedule trigger client resource by namespace and podset.
 func (c *ScheduleTriggerClient) Update(ctx context.Context, namespace, podset, state string) error {
-
 	trigger, err := c.Get(ctx, namespace, podset)
 	if err != nil {
-		//nolint:wrapcheck
+
 		return err
 	}
 

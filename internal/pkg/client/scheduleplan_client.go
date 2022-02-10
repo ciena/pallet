@@ -49,7 +49,7 @@ func (c *SchedulePlannerClient) List(ctx context.Context,
 	if err != nil {
 		c.Log.Error(err, "error-listing-planner", "namespace", namespace, "labels", labels)
 
-		return nil, err
+		return nil, fmt.Errorf("error listing planner: %w", err)
 	}
 
 	return &planList, nil
@@ -101,7 +101,7 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context,
 		if err != nil {
 			c.Log.Error(err, "error-creating-schedule-plan", "podset", podset)
 
-			return err
+			return fmt.Errorf("error creating plan spec: %w", err)
 		}
 
 		c.Log.V(1).Info("plan-create-success", "name", name, "podset", podset)
@@ -166,7 +166,6 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 	found := false
 
 	for i := range planRef.Spec.Plan {
-
 		if planRef.Spec.Plan[i].Pod == podName {
 			found = true
 		} else {
@@ -214,7 +213,7 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 func (c *SchedulePlannerClient) CheckIfPodPresent(ctx context.Context, namespace, podset, podName string) (bool, *plannerv1alpha1.PlanSpec, error) {
 	plan, err := c.Get(ctx, namespace, podset)
 	if err != nil {
-		//nolint:wrapcheck
+
 		return false, nil, err
 	}
 

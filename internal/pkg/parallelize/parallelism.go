@@ -42,6 +42,7 @@ func (p *Parallelizer) chunkSize(pieces int) int {
 func (p *Parallelizer) Until(ctx context.Context,
 	pieces int,
 	doWorkPiece workqueue.DoWorkPieceFunc) {
+
 	workqueue.ParallelizeUntil(ctx, p.parallelism,
 		pieces, doWorkPiece,
 		workqueue.WithChunkSize(p.chunkSize(pieces)))

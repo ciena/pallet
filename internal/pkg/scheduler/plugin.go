@@ -134,7 +134,6 @@ func New(
 }
 
 func getAssignmentState(cycleState *framework.CycleState) (*plannerAssignmentState, error) {
-
 	state, err := cycleState.Read(plannerAssignmentStateKey)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read cycle state: %w", err)
@@ -162,8 +161,8 @@ func (s *plannerAssignmentState) Clone() framework.StateData {
 func (p *PodSetPlanner) createAssignmentState(
 	ctx context.Context,
 	pod *v1.Pod,
-	eligibleNodes []*v1.Node) (*plannerAssignmentState, *framework.Status) {
-
+	eligibleNodes []*v1.Node) (*plannerAssignmentState, *framework.Status,
+) {
 	if len(eligibleNodes) == 0 {
 		p.log.V(1).Info("create-assignment-state-no-nodes-eligible")
 
@@ -186,7 +185,6 @@ func (p *PodSetPlanner) createAssignmentState(
 
 // Name returns the name of the scheduler.
 func (p *PodSetPlanner) Name() string {
-
 	return Name
 }
 
@@ -195,7 +193,6 @@ func (p *PodSetPlanner) PreFilter(
 	_ context.Context,
 	_ *framework.CycleState,
 	pod *v1.Pod) *framework.Status {
-
 	p.log.V(1).Info("prefilter", "pod", pod.Name)
 
 	return framework.NewStatus(framework.Success)
@@ -204,7 +201,6 @@ func (p *PodSetPlanner) PreFilter(
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
 // nolint:ireturn
 func (p *PodSetPlanner) PreFilterExtensions() framework.PreFilterExtensions {
-
 	return nil
 }
 
@@ -214,7 +210,6 @@ func (p *PodSetPlanner) PreScore(
 	state *framework.CycleState,
 	pod *v1.Pod,
 	nodes []*v1.Node) *framework.Status {
-
 	p.log.V(1).Info("pre-score", "pod", pod.Name, "nodes", len(nodes))
 
 	//nolint: gomnd
@@ -225,9 +220,8 @@ func (p *PodSetPlanner) PreScore(
 	if !status.IsSuccess() {
 		// check if the pod does not belong to a podset, or no planners found.
 		// in that case, we allow the default scheduler to schedule the pod
-		// nolint: lll
-		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) || status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
 
+		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) || status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
 			return framework.NewStatus(framework.Success)
 		}
 
@@ -245,7 +239,6 @@ func (p *PodSetPlanner) Score(
 	ctx context.Context,
 	state *framework.CycleState,
 	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
-
 	p.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
 	assignmentState, err := getAssignmentState(state)
@@ -271,8 +264,8 @@ func (p *PodSetPlanner) ScoreExtensions() framework.ScoreExtensions {
 // PostFilter is called when no node can be assigned to the pod.
 func (p *PodSetPlanner) PostFilter(ctx context.Context,
 	state *framework.CycleState, pod *v1.Pod,
-	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
-
+	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status,
+) {
 	p.log.V(1).Info("post-filter", "pod", pod.Name)
 
 	assignmentState, err := getAssignmentState(state)
@@ -286,7 +279,6 @@ func (p *PodSetPlanner) PostFilter(ctx context.Context,
 }
 
 func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligibleNodes []string) (string, error) {
-
 	podset := p.getPodSet(pod)
 	if podset == "" {
 		return "", ErrNoPodSetFound
@@ -321,9 +313,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	// if not, we hit the planner again to reallocate pod
 	// with the new eligible set
 	if planStatus {
-
 		for _, node := range eligibleNodes {
-
 			if node == planSpec.Node {
 				return planSpec.Node, nil
 			}

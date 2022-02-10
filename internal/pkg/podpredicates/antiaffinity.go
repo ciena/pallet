@@ -25,22 +25,20 @@ var (
 
 //nolint:unparam
 func newPodAntiAffinityPredicate(handle PredicateHandle) (*podAntiAffinity, error) {
-
 	return &podAntiAffinity{
 		handle: handle,
 	}, nil
 }
 
 func (p *podAntiAffinity) Name() string {
-
 	return podAntiAffinityName
 }
 
 // check if a given pod has anti-affinity with an existing pod on the given node.
 func (p *podAntiAffinity) Filter(parentCtx context.Context,
 	podsetHandle PodSetHandle,
-	pod *v1.Pod, node *v1.Node) *framework.Status {
-
+	pod *v1.Pod, node *v1.Node,
+) *framework.Status {
 	ctx, cancel := context.WithTimeout(parentCtx, p.handle.CallTimeout())
 	defer cancel()
 
@@ -56,8 +54,8 @@ func (p *podAntiAffinity) checkPodsWithAntiAffinityExist(parentCtx context.Conte
 	podsetHandle PodSetHandle,
 	pod *v1.Pod,
 	pods []*v1.Pod,
-	node *v1.Node) *framework.Status {
-
+	node *v1.Node,
+) *framework.Status {
 	affinity := pod.Spec.Affinity
 
 	ctx, cancel := context.WithTimeout(parentCtx, p.handle.CallTimeout())

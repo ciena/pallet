@@ -26,12 +26,10 @@ var (
 
 //nolint:unparam
 func newPodIsADuplicatePredicate(handle PredicateHandle) (*podIsADuplicate, error) {
-
 	return &podIsADuplicate{handle: handle}, nil
 }
 
 func (p *podIsADuplicate) Name() string {
-
 	return podIsADuplicateName
 }
 
@@ -44,7 +42,6 @@ func (p *podIsADuplicate) Filter(
 	pod *v1.Pod,
 	node *v1.Node,
 ) *framework.Status {
-
 	ctx, cancel := context.WithTimeout(parentCtx, p.handle.CallTimeout())
 	podsetPods, err := podsetHandle.List(ctx, node)
 
@@ -89,7 +86,6 @@ func getPodContainerKeys(pod *v1.Pod) []string {
 		ownerRef := &ownerRefList[i]
 
 		for j := range pod.Spec.Containers {
-
 			container := &pod.Spec.Containers[j]
 
 			// Namespace/Kind/Name should be unique for the cluster.

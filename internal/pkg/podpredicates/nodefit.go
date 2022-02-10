@@ -6,7 +6,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	descheduler_nodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
 	descheduler_utils "sigs.k8s.io/descheduler/pkg/utils"
@@ -41,7 +40,6 @@ func (r *Resource) Add(rl v1.ResourceList) {
 	for rName := range rl {
 		rQuant := rl[rName]
 
-		//nolint:exhaustive
 		switch rName {
 		case v1.ResourceCPU:
 			r.MilliCPU += rQuant.MilliValue()
@@ -71,7 +69,6 @@ func (r *Resource) ResourceList() v1.ResourceList {
 		v1.ResourceEphemeralStorage: *resource.NewQuantity(r.EphemeralStorage, resource.BinarySI),
 	}
 	for rName, rQuant := range r.ScalarResources {
-
 		if IsHugePageResourceName(rName) {
 			result[rName] = *resource.NewQuantity(rQuant, resource.BinarySI)
 		} else {
@@ -124,7 +121,6 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 	for rName := range rl {
 		rQuantity := rl[rName]
 
-		//nolint:exhaustive
 		switch rName {
 		case v1.ResourceMemory:
 			if mem := rQuantity.Value(); mem > r.Memory {
@@ -160,11 +156,6 @@ func computePodResourceRequest(pod *v1.Pod) *Resource {
 		result.SetMaxResource(pod.Spec.InitContainers[i].Resources.Requests)
 	}
 
-	// If Overhead is being utilized, add to the total requests for the pod
-	if pod.Spec.Overhead != nil && utilfeature.DefaultFeatureGate.Enabled(PodOverhead) {
-		result.Add(pod.Spec.Overhead)
-	}
-
 	return result
 }
 
@@ -183,13 +174,12 @@ var (
 
 //nolint:unparam
 func newPodFitsNodePredicate(
-	handle PredicateHandle) (*podFitsNode, error) {
-
+	handle PredicateHandle) (*podFitsNode, error,
+) {
 	return &podFitsNode{handle: handle}, nil
 }
 
 func (p *podFitsNode) Name() string {
-
 	return podFitsNodeName
 }
 
@@ -197,15 +187,14 @@ func (p *podFitsNode) Name() string {
 func (p *podFitsNode) Filter(_ context.Context,
 	_ PodSetHandle,
 	pod *v1.Pod,
-	node *v1.Node) *framework.Status {
-
+	node *v1.Node,
+) *framework.Status {
 	// check for node taint toleration
 	if ok := descheduler_utils.TolerationsTolerateTaintsWithFilter(
 		pod.Spec.Tolerations, node.Spec.Taints,
 		func(taint *v1.Taint) bool {
 			return taint.Effect == v1.TaintEffectNoSchedule
 		}); !ok {
-
 		return framework.NewStatus(framework.Unschedulable)
 	}
 
@@ -223,7 +212,6 @@ func (p *podFitsNode) Filter(_ context.Context,
 		podRequest.Memory == 0 &&
 		podRequest.EphemeralStorage == 0 &&
 		len(podRequest.ScalarResources) == 0 {
-
 		return framework.NewStatus(framework.Success)
 	}
 
@@ -250,7 +238,6 @@ func (p *podFitsNode) Filter(_ context.Context,
 	}
 
 	if len(reasons) > 0 {
-
 		return framework.NewStatus(framework.Error, reasons...)
 	}
 

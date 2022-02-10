@@ -33,11 +33,10 @@ type SchedulePlanReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// nolint:lll
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduleplans,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduleplans/status,verbs=get;update;patch
 
-// Reconcile evaluates updates to scheduleplan
+// Reconcile evaluates updates to scheduleplan.
 func (r *SchedulePlanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("scheduleplan", req.NamespacedName)

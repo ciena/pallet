@@ -51,8 +51,8 @@ type configSpec struct {
 }
 
 func getClients(kubeconfig string,
-	log logr.Logger) (*kubernetes.Clientset, *client.SchedulePlannerClient, error) {
-
+	log logr.Logger) (*kubernetes.Clientset, *client.SchedulePlannerClient, error,
+) {
 	var config *rest.Config
 
 	var err error
@@ -73,7 +73,6 @@ func getClients(kubeconfig string,
 	}
 
 	plannerClient, err := client.NewSchedulePlannerClient(config, log.WithName("planner-client"))
-
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get planner client: %w", err)
 	}
