@@ -3,6 +3,10 @@ package planner
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/ciena/outbound/internal/pkg/client"
 	"github.com/ciena/outbound/internal/pkg/podpredicates"
 	"github.com/go-logr/logr"
@@ -16,11 +20,9 @@ import (
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"math/rand"
-	"sync"
-	"time"
 )
 
+// PodSetPlanner stores the info related to podset planning.
 type PodSetPlanner struct {
 	options          PlannerOptions
 	clientset        *kubernetes.Clientset
@@ -34,13 +36,14 @@ type PodSetPlanner struct {
 	sync.Mutex
 }
 
+// PlannerOptions is the configurable set of options for creating planner.
 type PlannerOptions struct {
 	CallTimeout        time.Duration
 	Parallelism        int
 	UpdateWorkerPeriod time.Duration
 }
 
-type PodPlannerInfo struct {
+type podPlannerInfo struct {
 	EligibleNodes []string
 }
 
@@ -48,6 +51,7 @@ type workWrapper struct {
 	work func() error
 }
 
+// NewPlanner is used to instantate a podset planner.
 func NewPlanner(options PlannerOptions,
 	clientset *kubernetes.Clientset,
 	plannerClient *client.SchedulePlannerClient,
@@ -68,14 +72,14 @@ func NewPlanner(options PlannerOptions,
 		podpredicates.WithCallTimeout(options.CallTimeout),
 		podpredicates.WithParallelism(options.Parallelism),
 	)
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating predicate handler: %w", err)
 	}
 
 	planner.predicateHandler = predicateHandler
 
 	var addFunc func(interface{})
+
 	var deleteFunc func(obj interface{})
 
 	updateFunc := func(oldObj, newObj interface{}) {
@@ -139,28 +143,12 @@ func getEligibleNodes(nodeLister listersv1.NodeLister) ([]*v1.Node, error) {
 	return eligibleNodes, nil
 }
 
-func getEligibleNodeNames(nodeLister listersv1.NodeLister) ([]string, error) {
-	eligibleNodeList, err := getEligibleNodes(nodeLister)
-	if err != nil {
-		return nil, err
-	}
-
-	eligibleNodes := make([]string, len(eligibleNodeList))
-
-	for i, eligibleNode := range eligibleNodeList {
-		eligibleNodes[i] = eligibleNode.Name
-	}
-
-	return eligibleNodes, nil
-}
-
 func initInformers(clientset *kubernetes.Clientset,
 	log logr.Logger,
 	quit chan struct{},
 	add func(interface{}),
 	update func(interface{}, interface{}),
 	delete func(interface{})) listersv1.NodeLister {
-
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 	nodeInformer := factory.Core().V1().Nodes()
 
@@ -169,8 +157,10 @@ func initInformers(clientset *kubernetes.Clientset,
 			node, ok := obj.(*v1.Node)
 			if !ok {
 				log.V(1).Info("this-is-not-a-node")
+
 				return
 			}
+
 			log.V(1).Info("new-node-added", "node", node.GetName())
 		},
 	})
@@ -183,6 +173,7 @@ func initInformers(clientset *kubernetes.Clientset,
 	})
 
 	factory.Start(quit)
+
 	return nodeInformer.Lister()
 }
 
@@ -197,15 +188,6 @@ func (p *PodSetPlanner) handlePodUpdate(oldPod *v1.Pod, newPod *v1.Pod) {
 	}
 }
 
-func (p *PodSetPlanner) handlePodDelete(pod *v1.Pod) {
-	p.log.V(1).Info("schedule-planner-pod-delete", "pod", pod.Name)
-
-	p.Lock()
-	defer p.Unlock()
-
-	p.handlePodDeleteWithLock(pod)
-}
-
 func (p *PodSetPlanner) handlePodDeleteWithLock(pod *v1.Pod) {
 	delete(p.podToNodeMap, ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace})
 
@@ -216,7 +198,6 @@ func (p *PodSetPlanner) removePodFromPlanner(pod *v1.Pod) {
 	podset := ""
 
 	for k, v := range pod.Labels {
-
 		if k == "planner.ciena.io/pod-set" {
 			podset = v
 		}
@@ -229,7 +210,6 @@ func (p *PodSetPlanner) removePodFromPlanner(pod *v1.Pod) {
 	name, namespace := pod.Name, pod.Namespace
 
 	doUpdate := func() error {
-
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -254,12 +234,11 @@ func (p *PodSetPlanner) removePodFromPlanner(pod *v1.Pod) {
 		p.log.Error(err, "planner-update-will-be-retried",
 			"pod", name, "namespace", namespace, "podset", podset)
 
+		//nolint:wrapcheck
 		return err
 	}
 
-	err := doUpdate()
-
-	if err == nil {
+	if err := doUpdate(); err == nil {
 		return
 	}
 
@@ -267,6 +246,7 @@ func (p *PodSetPlanner) removePodFromPlanner(pod *v1.Pod) {
 	p.updateQueue.AddRateLimited(&workWrapper{work: doUpdate})
 }
 
+// FindNodeLister finds an node reference from the lister cache.
 func (p *PodSetPlanner) FindNodeLister(node string) (*v1.Node, error) {
 	nodes, err := getEligibleNodes(p.nodeLister)
 	if err != nil {
@@ -279,9 +259,10 @@ func (p *PodSetPlanner) FindNodeLister(node string) (*v1.Node, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Cound not find node lister instance for node %s: %w", node, ErrNotFound)
+	return nil, fmt.Errorf("cound not find node lister instance for node %s: %w", node, ErrNotFound)
 }
 
+// Stop is used to stop planner.
 func (p *PodSetPlanner) Stop() {
 	close(p.quit)
 }
@@ -290,7 +271,6 @@ func (p *PodSetPlanner) processUpdate(item interface{}) {
 	forgetItem := true
 
 	defer func() {
-
 		if forgetItem {
 			p.updateQueue.Forget(item)
 		}
@@ -342,6 +322,9 @@ func (p *PodSetPlanner) getEligibleNodesForPod(parentCtx context.Context,
 		podSetHandler,
 		pod,
 		allEligibleNodes)
+	if len(filteredNodes) == 0 {
+		return nil, ErrNoNodesFound
+	}
 
 	nodeNames := make([]string, len(filteredNodes))
 
@@ -352,11 +335,33 @@ func (p *PodSetPlanner) getEligibleNodesForPod(parentCtx context.Context,
 	return nodeNames, nil
 }
 
+func (p *PodSetPlanner) getEligibleNodes(parentCtx context.Context,
+	podSetHandler *podSetHandlerImpl,
+	pod *v1.Pod,
+	allEligibleNodes []*v1.Node,
+	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo) ([]string, error) {
+
+	plannerInfo, ok := schedulingMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
+	if ok {
+		return plannerInfo.EligibleNodes, nil
+	}
+
+	//get and load eligible nodes for pod
+	eligibleNodes, err := p.getEligibleNodesForPod(parentCtx, podSetHandler, pod, allEligibleNodes)
+	if err != nil {
+		return nil, err
+	}
+
+	plannerInfo = &podPlannerInfo{EligibleNodes: eligibleNodes}
+	schedulingMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}] = plannerInfo
+
+	return eligibleNodes, nil
+}
+
 func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	podList []*v1.Pod,
-	schedulingMap map[ktypes.NamespacedName]*PodPlannerInfo) (map[string]string, error) {
-
+	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo) (map[string]string, error) {
 	var failedPodList []*v1.Pod
 
 	podNames := make([]string, len(podList))
@@ -366,6 +371,7 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	}
 
 	p.log.V(1).Info("scheduler-planner", "pod-list", podNames)
+
 	assignmentMap := make(map[string]string)
 
 	allEligibleNodes, err := getEligibleNodes(p.nodeLister)
@@ -377,45 +383,33 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	defer p.Unlock()
 
 	for _, pod := range podList {
-
 		if pod.Status.Phase == v1.PodFailed || pod.DeletionTimestamp != nil {
+
 			continue
 		}
 
 		// check if the pod is already assigned a node
 		if node, err := p.GetNodeName(pod); err == nil {
 			assignmentMap[pod.Name] = node
+
 			continue
 		}
 
-		var plannerInfo *PodPlannerInfo
+		eligibleNodes, err := p.getEligibleNodes(parentCtx, podSetHandler,
+			pod, allEligibleNodes, schedulingMap)
 
-		if inf, ok := schedulingMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
-			eligibleNodes, err := p.getEligibleNodesForPod(parentCtx, podSetHandler, pod, allEligibleNodes)
+		if err != nil {
+			p.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
+			failedPodList = append(failedPodList, pod)
 
-			if err != nil {
-				p.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
-				failedPodList = append(failedPodList, pod)
-				continue
-			}
-
-			plannerInfo = &PodPlannerInfo{EligibleNodes: eligibleNodes}
-
-			schedulingMap[ktypes.NamespacedName{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-			}] = plannerInfo
-
-		} else {
-			plannerInfo = inf
+			continue
 		}
-
-		eligibleNodes := plannerInfo.EligibleNodes
 
 		selectedNode, err := p.findFit(parentCtx, pod, eligibleNodes)
 		if err != nil {
 			p.log.Error(err, "nodes-not-found", "pod", pod.Name)
 			failedPodList = append(failedPodList, pod)
+
 			continue
 		}
 
@@ -424,7 +418,6 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 		assignmentMap[pod.Name] = selectedNode.Name
 	}
 
-	// check if there are failed pods and requeue them for assignment through planner again
 	if len(failedPodList) > 0 {
 		p.log.V(1).Info("build-plan", "pods-planning-failed", len(failedPodList))
 
@@ -436,6 +429,8 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	return assignmentMap, nil
 }
 
+// BuildSchedulePlan builds a schedule plan for the podset and returns an
+// assignment map containing pod to node assignments.
 func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 	namespace, podSet string,
 	scheduledPod string,
@@ -448,26 +443,30 @@ func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 
 	pods, err := p.clientset.CoreV1().Pods(namespace).List(ctx,
 		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("planner.ciena.io/pod-set=%s", podSet)},
+			LabelSelector: fmt.Sprintf("planner.ciena.io/pod-set=%s", podSet),
+		},
 	)
 	if err != nil {
 		p.log.Error(err, "build-schedule-plan-list-pods-error", "podset", podSet)
+
 		return nil, err
 	}
 
 	podList := make([]*v1.Pod, len(pods.Items))
-	schedulingMap := make(map[ktypes.NamespacedName]*PodPlannerInfo)
+	schedulingMap := make(map[ktypes.NamespacedName]*podPlannerInfo)
 
 	indexOfScheduledPod := 0
 
-	for i := range pods.Items {
-		podList[i] = &pods.Items[i]
+	for index := range pods.Items {
+		podList[index] = &pods.Items[index]
 
 		// the eligibleNodes is for the pod getting scheduled
-		if podList[i].Name == scheduledPod {
-			indexOfScheduledPod = i
-			schedulingMap[ktypes.NamespacedName{Name: pods.Items[i].Name,
-				Namespace: pods.Items[i].Namespace}] = &PodPlannerInfo{
+		if podList[index].Name == scheduledPod {
+			indexOfScheduledPod = index
+			schedulingMap[ktypes.NamespacedName{
+				Name:      pods.Items[index].Name,
+				Namespace: pods.Items[index].Namespace,
+			}] = &podPlannerInfo{
 				EligibleNodes: eligibleNodes,
 			}
 		}
@@ -483,22 +482,24 @@ func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 	return p.BuildPlan(parentCtx, podSetHandler, podList, schedulingMap)
 }
 
-// called with constraintpolicymutex held
+// called with constraintpolicymutex held.
 func (p *PodSetPlanner) getPodNode(pod *v1.Pod) (string, error) {
-	if node, ok := p.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]; !ok {
-		return "", fmt.Errorf("Cannot find pod %s node: %w", pod.Name, ErrPodNotAssigned)
-	} else {
-		return node, nil
+	node, ok := p.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
+	if !ok {
+		return "", fmt.Errorf("cannot find pod %s node: %w", pod.Name, ErrPodNotAssigned)
 	}
+
+	return node, nil
 }
 
-// called with constraintpolicymutex held
+// called with constraintpolicymutex held.
 func (p *PodSetPlanner) setPodNode(pod *v1.Pod, nodeName string) {
 	p.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
 }
 
 // Fast version. look up internal cache.
-// look up for the node in the lister cache if pod host ip is not set
+// look up for the node in the lister cache if pod host ip is not set.
+// GetNodeName returns the nodename for the given pod.
 func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 	if pod.Status.HostIP == "" {
 		return p.getPodNode(pod)
@@ -510,17 +511,15 @@ func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 	}
 
 	for _, node := range nodes {
+		for i := range node.Status.Addresses {
 
-		for _, nodeAddr := range node.Status.Addresses {
-
-			if nodeAddr.Address == pod.Status.HostIP {
-
+			if node.Status.Addresses[i].Address == pod.Status.HostIP {
 				return node.Name, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("Pod ip %s not found in node lister cache: %w", pod.Status.HostIP, ErrNotFound)
+	return "", fmt.Errorf("pod ip %s not found in node lister cache: %w", pod.Status.HostIP, ErrNotFound)
 }
 
 func (p *PodSetPlanner) findFit(_ context.Context, pod *v1.Pod, eligibleNodes []string) (*v1.Node, error) {
@@ -531,6 +530,7 @@ func (p *PodSetPlanner) findFit(_ context.Context, pod *v1.Pod, eligibleNodes []
 	}
 
 	selectedNode := eligibleNodes[rand.Intn(len(eligibleNodes))]
+
 	nodeInstance, err := p.FindNodeLister(selectedNode)
 	if err != nil {
 		p.log.V(1).Info("node-instance-not-found-in-lister-cache")

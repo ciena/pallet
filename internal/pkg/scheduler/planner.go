@@ -3,6 +3,10 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"sort"
+	"time"
+
 	"github.com/ciena/outbound/internal/pkg/client"
 	planner "github.com/ciena/outbound/pkg/apis/planner"
 	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
@@ -12,11 +16,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"math/rand"
-	"sort"
-	"time"
 )
 
+//Planner is used to save information used while talking to a podset planner service.
 type Planner struct {
 	Service       v1.Service
 	Namespace     string
@@ -28,8 +30,10 @@ type Planner struct {
 	DialOptions   []grpc.DialOption
 }
 
+//PlannerList is a list of references to Planner.
 type PlannerList []*Planner
 
+//PlannerService is used to lookup a podset planner service.
 type PlannerService struct {
 	clnt        *client.SchedulePlannerClient
 	handle      framework.Handle
@@ -42,12 +46,14 @@ type planReward struct {
 	assignments map[string]string
 }
 
+//NewPlannerService creates a planner service instance to talk to an external podset planner service.
 func NewPlannerService(clnt *client.SchedulePlannerClient, handle framework.Handle,
 	log logr.Logger, callTimeout time.Duration) *PlannerService {
 
 	return &PlannerService{clnt: clnt, handle: handle, log: log, callTimeout: callTimeout}
 }
 
+//CreateOrUpdate is used to create or update the assignments for the podset to the schedule plan spec.
 func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 	podset string,
 	assignments map[string]string) error {
@@ -59,9 +65,9 @@ func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 		pod.Namespace,
 		podset,
 		assignments)
-
 	if err != nil {
 		s.log.Error(err, "create-update-plan-failure", "pod", pod.Name)
+
 		return err
 	}
 
@@ -71,7 +77,8 @@ func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 	labelSelector string,
 	namespace, podset, scheduledPod string,
-	eligibleNodes []string) (PlannerList, error) {
+	eligibleNodes []string) (PlannerList, error,
+) {
 
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
@@ -80,19 +87,20 @@ func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 		LabelSelector: labelSelector,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting service list: %w", err)
 	}
 
 	if len(svcs.Items) == 0 {
 		return nil, ErrNoPlannersFound
 	}
 
-	var planners PlannerList
+	planners := make(PlannerList, len(svcs.Items))
 
-	for _, svc := range svcs.Items {
+	for index := range svcs.Items {
+		svc := &svcs.Items[index]
 
-		planners = append(planners, &Planner{
-			Service:       svc,
+		planners[index] = &Planner{
+			Service:       *svc,
 			Namespace:     namespace,
 			Podset:        podset,
 			ScheduledPod:  scheduledPod,
@@ -102,12 +110,13 @@ func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 			DialOptions: []grpc.DialOption{
 				grpc.WithInsecure(),
 			},
-		})
+		}
 	}
 
 	return planners, nil
 }
 
+//Lookup is used to lookup a podset planner service.
 func (s *PlannerService) Lookup(parentCtx context.Context,
 	namespace, podset, scheduledPod string, eligibleNodes []string) (PlannerList, error) {
 
@@ -126,17 +135,21 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 	return planners, nil
 }
 
+//Invoke is used to invoke all the podset planners.
 func (planners PlannerList) Invoke(parentCtx context.Context,
 	trigger *plannerv1alpha1.ScheduleTrigger) (map[string]string, error) {
 
+	//nolint:prealloc
 	var planRewards []*planReward
+
 	var lastError error
 
 	for _, plan := range planners {
 		assignments, err := plan.BuildSchedulePlan(parentCtx)
 		if err != nil {
 			st := status.Convert(err)
-			lastError = fmt.Errorf("%v", st.Message())
+			lastError = fmt.Errorf("%v:%w", st.Message(), ErrBuildingPlan)
+
 			continue
 		}
 
@@ -162,12 +175,15 @@ func (planners PlannerList) Invoke(parentCtx context.Context,
 	return planRewards[0].assignments, nil
 }
 
-func computePlanReward(trigger *plannerv1alpha1.ScheduleTrigger, assignments map[string]string) *planReward {
+func computePlanReward(_ *plannerv1alpha1.ScheduleTrigger, assignments map[string]string) *planReward {
 
+	//nolint:gomnd
 	return &planReward{assignments: assignments, reward: rand.Intn(100) + 1}
 }
 
+//BuildSchedulePlan is used to build a podset assignment plan by talking to the podset planner service.
 func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]string, error) {
+
 	p.Log.V(1).Info("build-schedule-plan", "namespace", p.Namespace,
 		"podset", p.Podset,
 		"scheduledPod", p.ScheduledPod)
@@ -179,16 +195,19 @@ func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]strin
 
 	conn, err := grpc.DialContext(dctx, dns, p.DialOptions...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error grpc dial: %w", err)
 	}
 
+	//nolint:errcheck
 	defer conn.Close()
 
 	client := planner.NewSchedulePlannerClient(conn)
 	ctx, cancel := context.WithTimeout(parentCtx, p.CallTimeout)
+
 	defer cancel()
 
-	req := &planner.SchedulePlanRequest{Namespace: p.Namespace,
+	req := &planner.SchedulePlanRequest{
+		Namespace:     p.Namespace,
 		PodSet:        p.Podset,
 		ScheduledPod:  p.ScheduledPod,
 		EligibleNodes: p.EligibleNodes,
@@ -202,6 +221,7 @@ func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]strin
 	resp, err := client.BuildSchedulePlan(ctx, req)
 	if err != nil {
 		p.Log.Error(err, "build-schedule-plan-request-error")
+
 		return nil, err
 	}
 

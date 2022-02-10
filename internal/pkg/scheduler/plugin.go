@@ -79,14 +79,14 @@ func New(
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error creating dev logger: %w", err)
 		}
 
 		log = zapr.NewLogger(zapLog)
 	} else {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error creating prod logger: %w", err)
 		}
 
 		log = zapr.NewLogger(zapLog)
@@ -102,6 +102,7 @@ func New(
 	if err != nil {
 		pluginLogger.Error(err, "error-initializing-planner-client")
 
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -110,6 +111,7 @@ func New(
 	if err != nil {
 		pluginLogger.Error(err, "error-initializing-trigger-client")
 
+		//nolint:wrapcheck
 		return nil, err
 	}
 
@@ -132,6 +134,7 @@ func New(
 }
 
 func getAssignmentState(cycleState *framework.CycleState) (*plannerAssignmentState, error) {
+
 	state, err := cycleState.Read(plannerAssignmentStateKey)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read cycle state: %w", err)
@@ -156,13 +159,13 @@ func (s *plannerAssignmentState) Clone() framework.StateData {
 	return s
 }
 
-func (c *PodSetPlanner) createAssignmentState(
+func (p *PodSetPlanner) createAssignmentState(
 	ctx context.Context,
 	pod *v1.Pod,
 	eligibleNodes []*v1.Node) (*plannerAssignmentState, *framework.Status) {
 
 	if len(eligibleNodes) == 0 {
-		c.log.V(1).Info("create-assignment-state-no-nodes-eligible")
+		p.log.V(1).Info("create-assignment-state-no-nodes-eligible")
 
 		return nil, framework.NewStatus(framework.Unschedulable)
 	}
@@ -173,8 +176,7 @@ func (c *PodSetPlanner) createAssignmentState(
 		nodeNames[i] = nodeInfo.Name
 	}
 
-	selectedNode, err := c.findFit(ctx, pod, nodeNames)
-
+	selectedNode, err := p.findFit(ctx, pod, nodeNames)
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}
@@ -183,47 +185,48 @@ func (c *PodSetPlanner) createAssignmentState(
 }
 
 // Name returns the name of the scheduler.
-func (c *PodSetPlanner) Name() string {
+func (p *PodSetPlanner) Name() string {
+
 	return Name
 }
 
 // PreFilter pre-filters the pods to be placed.
-func (c *PodSetPlanner) PreFilter(
+func (p *PodSetPlanner) PreFilter(
 	_ context.Context,
 	_ *framework.CycleState,
 	pod *v1.Pod) *framework.Status {
-	c.log.V(1).Info("prefilter", "pod", pod.Name)
+
+	p.log.V(1).Info("prefilter", "pod", pod.Name)
 
 	return framework.NewStatus(framework.Success)
 }
 
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
 // nolint:ireturn
-func (c *PodSetPlanner) PreFilterExtensions() framework.PreFilterExtensions {
+func (p *PodSetPlanner) PreFilterExtensions() framework.PreFilterExtensions {
+
 	return nil
 }
 
-// PreScore uses the filtered node list and selects the node for the pod using the planner
-func (c *PodSetPlanner) PreScore(
+// PreScore uses the filtered node list and selects the node for the pod using the planner.
+func (p *PodSetPlanner) PreScore(
 	parentCtx context.Context,
 	state *framework.CycleState,
 	pod *v1.Pod,
 	nodes []*v1.Node) *framework.Status {
 
-	c.log.V(1).Info("pre-score", "pod", pod.Name, "nodes", len(nodes))
+	p.log.V(1).Info("pre-score", "pod", pod.Name, "nodes", len(nodes))
 
 	//nolint: gomnd
-	ctx, cancel := context.WithTimeout(parentCtx, c.options.CallTimeout*2)
+	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout*2)
 	defer cancel()
 
-	assignmentState, status := c.createAssignmentState(ctx, pod, nodes)
-
+	assignmentState, status := p.createAssignmentState(ctx, pod, nodes)
 	if !status.IsSuccess() {
-
 		// check if the pod does not belong to a podset, or no planners found.
 		// in that case, we allow the default scheduler to schedule the pod
-		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) ||
-			status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
+		// nolint: lll
+		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) || status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
 
 			return framework.NewStatus(framework.Success)
 		}
@@ -231,18 +234,19 @@ func (c *PodSetPlanner) PreScore(
 		return framework.NewStatus(framework.Unschedulable)
 	}
 
-	c.log.V(1).Info("prescore-state-assignment", "pod", pod.Name, "node", assignmentState.node)
+	p.log.V(1).Info("prescore-state-assignment", "pod", pod.Name, "node", assignmentState.node)
 	state.Write(plannerAssignmentStateKey, assignmentState)
 
 	return status
 }
 
 // Score scores the eligible nodes.
-func (c *PodSetPlanner) Score(
+func (p *PodSetPlanner) Score(
 	ctx context.Context,
 	state *framework.CycleState,
 	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
-	c.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
+
+	p.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
 	assignmentState, err := getAssignmentState(state)
 	if err != nil {
@@ -253,46 +257,49 @@ func (c *PodSetPlanner) Score(
 		return 1, framework.NewStatus(framework.Success)
 	}
 
-	c.log.V(1).Info("set-score", "score", framework.MaxNodeScore, "pod", pod.Name, "node", nodeName)
+	p.log.V(1).Info("set-score", "score", framework.MaxNodeScore, "pod", pod.Name, "node", nodeName)
 
 	return framework.MaxNodeScore, framework.NewStatus(framework.Success)
 }
 
 // ScoreExtensions calcuates scores for the extensions.
 // nolint:ireturn
-func (c *PodSetPlanner) ScoreExtensions() framework.ScoreExtensions {
+func (p *PodSetPlanner) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }
 
 // PostFilter is called when no node can be assigned to the pod.
-func (c *PodSetPlanner) PostFilter(ctx context.Context,
+func (p *PodSetPlanner) PostFilter(ctx context.Context,
 	state *framework.CycleState, pod *v1.Pod,
 	filteredNodeStatusMap framework.NodeToStatusMap) (*framework.PostFilterResult, *framework.Status) {
-	c.log.V(1).Info("post-filter", "pod", pod.Name)
+
+	p.log.V(1).Info("post-filter", "pod", pod.Name)
 
 	assignmentState, err := getAssignmentState(state)
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}
 
-	c.log.V(1).Info("post-filter", "nominated-node", assignmentState.node, "pod", pod.Name)
+	p.log.V(1).Info("post-filter", "nominated-node", assignmentState.node, "pod", pod.Name)
 
 	return &framework.PostFilterResult{NominatedNodeName: assignmentState.node}, framework.NewStatus(framework.Success)
 }
 
 func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligibleNodes []string) (string, error) {
+
 	podset := p.getPodSet(pod)
 	if podset == "" {
 		return "", ErrNoPodSetFound
 	}
 
 	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout)
-
 	trigger, err := p.triggerClient.Get(ctx, pod.Namespace, podset)
+
 	cancel()
 
 	if err != nil {
 		p.log.V(1).Info("no-trigger-found", "pod", pod.Name, "podset", podset, "namespace", pod.Namespace)
+
 		return "", err
 	}
 
@@ -313,17 +320,14 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	// check if the node is in the eligible filtered list
 	// if not, we hit the planner again to reallocate pod
 	// with the new eligible set
-
 	if planStatus {
 
 		for _, node := range eligibleNodes {
 
 			if node == planSpec.Node {
-
 				return planSpec.Node, nil
 			}
 		}
-
 	}
 
 	p.log.V(1).Info("planner-lookup", "pod", pod.Name, "namespace", pod.Namespace,
@@ -339,6 +343,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	}
 
 	p.log.V(1).Info("found-planner", "pod", pod.Name, "podset", podset, "planners", len(planners))
+
 	assignments, err := planners.Invoke(parentCtx, trigger)
 	if err != nil {
 		return "", err
@@ -366,6 +371,7 @@ func (p *PodSetPlanner) getPodSet(pod *v1.Pod) string {
 	for k, v := range pod.Labels {
 		if k == "planner.ciena.io/pod-set" {
 			podset = v
+
 			break
 		}
 	}

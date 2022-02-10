@@ -25,14 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
+//nolint: gochecknoglobals
 var (
-	// GroupVersion is group version used to register these objects
+	// GroupVersion is group version used to register these objects.
 	GroupVersion = schema.GroupVersion{Group: "planner.ciena.io", Version: "v1alpha1"}
 
-	// Alias for genclient that uses SchemeGroupVersion while initializing the rest client
+	// SchemeGroupVersion is an alias for genclient that uses SchemeGroupVersion while initializing the rest client.
 	SchemeGroupVersion = GroupVersion
 
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.

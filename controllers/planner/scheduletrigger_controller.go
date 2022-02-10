@@ -18,20 +18,20 @@ package planner
 
 import (
 	"context"
+	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
-
-	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"sync"
+	"time"
 )
 
+// ScheduleTriggerCallback is registered and invoked on updates.
 type ScheduleTriggerCallback func(ctx context.Context, trigger *plannerv1alpha1.ScheduleTrigger)
 
-// ScheduleTriggerReconciler reconciles a ScheduleTrigger object
+// ScheduleTriggerReconciler reconciles a ScheduleTrigger object.
 type ScheduleTriggerReconciler struct {
 	client.Client
 	Log                logr.Logger
@@ -47,10 +47,10 @@ type triggerReference struct {
 	timerQuit chan struct{}
 }
 
-// transition the trigger to schedule state
+// transition the trigger to schedule state.
 func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Context,
 	triggerRef *plannerv1alpha1.ScheduleTrigger) {
-	//lookup the trigger
+
 	var trigger plannerv1alpha1.ScheduleTrigger
 
 	ctx, cancel := context.WithCancel(parentCtx)
@@ -58,10 +58,10 @@ func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Conte
 	err := r.Client.Get(ctx,
 		types.NamespacedName{Name: triggerRef.Name, Namespace: triggerRef.Namespace},
 		&trigger)
-
 	if err != nil {
 		cancel()
 		r.Log.Error(err, "error-transitioning-trigger-to-schedule", "trigger", trigger.Name, "namespace", trigger.Namespace)
+
 		return
 	}
 
@@ -79,18 +79,19 @@ func (r *ScheduleTriggerReconciler) transitionToSchedule(parentCtx context.Conte
 
 	if err != nil {
 		r.Log.Error(err, "error-updating-trigger", "trigger", trigger.Name, "namespace", trigger.Namespace)
+
 		return
 	}
 }
 
+// ScheduleTimerReset resets the trigger timer.
 func (r *ScheduleTriggerReconciler) ScheduleTimerReset(trigger *plannerv1alpha1.ScheduleTrigger) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
 	ref, ok := r.scheduleTriggerMap[types.NamespacedName{Name: trigger.Name, Namespace: trigger.Namespace}]
 	if !ok {
-
-		//no timer to reset
+		// no timer to reset
 		return
 	}
 
@@ -99,7 +100,6 @@ func (r *ScheduleTriggerReconciler) ScheduleTimerReset(trigger *plannerv1alpha1.
 
 func (r *ScheduleTriggerReconciler) quietTimer(ref *triggerReference,
 	trigger *plannerv1alpha1.ScheduleTrigger) {
-
 	defer ref.timer.Stop()
 
 	for {
@@ -127,21 +127,23 @@ func (r *ScheduleTriggerReconciler) deleteTimer(key types.NamespacedName) {
 
 	ref, ok := r.scheduleTriggerMap[key]
 	if !ok {
-
 		return
 	}
 
 	ref.timerQuit <- struct{}{}
+
 	delete(r.scheduleTriggerMap, key)
 }
 
 func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plannerv1alpha1.ScheduleTrigger) {
 	var durationStr string
+
 	var duration time.Duration
 
 	for k, v := range trigger.Labels {
 		if k == "planner.ciena.io/quiet-time" {
 			durationStr = v
+
 			break
 		}
 	}
@@ -152,24 +154,24 @@ func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plann
 	key := types.NamespacedName{Name: trigger.Name, Namespace: trigger.Namespace}
 
 	if durationStr == "" {
-		//stop existing timers
+		// stop existing timers
 		ref, ok := r.scheduleTriggerMap[key]
 		if ok {
 			r.Log.V(1).Info("quiet-timer-stop", "trigger", trigger.Name, "namespace", trigger.Namespace)
 
 			ref.timerQuit <- struct{}{}
+
 			delete(r.scheduleTriggerMap, key)
 		}
 
 		return
 	}
 
-	if d, err := time.ParseDuration(durationStr); err != nil {
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
 		r.Log.Error(err, "error-parsing-duration-string-for-trigger", "duration", durationStr)
 
 		return
-	} else {
-		duration = d
 	}
 
 	if ref, ok := r.scheduleTriggerMap[key]; !ok {
@@ -179,24 +181,25 @@ func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plann
 		r.scheduleTriggerMap[key] = ref
 
 		r.Log.V(1).Info("quiet-timer-start", "trigger", trigger.Name, "duration", duration)
-		go r.quietTimer(ref, trigger)
-	} else {
-		if ref.duration != duration {
-			r.Log.V(1).Info("quiet-timer-reset", "duration", duration)
 
-			ref.duration = duration
-			ref.timer.Reset(duration)
-		}
+		go r.quietTimer(ref, trigger)
+	} else if ref.duration != duration {
+		r.Log.V(1).Info("quiet-timer-reset", "duration", duration)
+
+		ref.duration = duration
+		ref.timer.Reset(duration)
 	}
 }
 
+// RegisterScheduleTrigger registers a trigger callback that is invoked on updates.
 func (r *ScheduleTriggerReconciler) RegisterScheduleTrigger(cb ScheduleTriggerCallback) {
 	if cb != nil {
 		r.triggerCallbacks = append(r.triggerCallbacks, cb)
 	}
 }
 
-func (r *ScheduleTriggerReconciler) scheduleTrigger(parentCtx context.Context, trigger *plannerv1alpha1.ScheduleTrigger) {
+func (r *ScheduleTriggerReconciler) scheduleTrigger(parentCtx context.Context,
+	trigger *plannerv1alpha1.ScheduleTrigger) {
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 
@@ -211,6 +214,8 @@ func (r *ScheduleTriggerReconciler) scheduleTrigger(parentCtx context.Context, t
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduletriggers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduletriggers/status,verbs=get;update;patch
 
+// Reconcile evaluates the status of schedule trigger and updates
+// internal status if required.
 func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Log.V(1).Info("schedule-trigger", "trigger", req.NamespacedName.Name, "namespace", req.NamespacedName.Namespace)
 
@@ -221,10 +226,10 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 	defer cancel()
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &trigger); err != nil {
-
 		// delete timer for the trigger
 		r.deleteTimer(req.NamespacedName)
 
+		// nolint:nilerr
 		return ctrl.Result{}, nil
 	}
 
@@ -232,13 +237,17 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 		r.scheduleTrigger(ctx, &trigger)
 	}
 
+	//nolint:contextcheck
 	r.checkAndAllocateScheduleTimer(&trigger)
+
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager sets up the controller with Manager.
 func (r *ScheduleTriggerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.scheduleTriggerMap = make(map[types.NamespacedName]*triggerReference)
 
+	//nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&plannerv1alpha1.ScheduleTrigger{}).
 		Complete(r)

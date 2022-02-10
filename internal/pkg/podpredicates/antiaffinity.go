@@ -2,6 +2,7 @@ package podpredicates
 
 import (
 	"context"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
@@ -17,9 +18,12 @@ const (
 	podAntiAffinityName = "PodAntiAffinity"
 )
 
-var _ Predicate = &podAntiAffinity{}
-var _ FilterPredicate = &podAntiAffinity{}
+var (
+	_ Predicate       = &podAntiAffinity{}
+	_ FilterPredicate = &podAntiAffinity{}
+)
 
+//nolint:unparam
 func newPodAntiAffinityPredicate(handle PredicateHandle) (*podAntiAffinity, error) {
 
 	return &podAntiAffinity{
@@ -32,8 +36,9 @@ func (p *podAntiAffinity) Name() string {
 	return podAntiAffinityName
 }
 
-// check if a given pod has anti-affinity with an existing pod on the given node
-func (p *podAntiAffinity) Filter(parentCtx context.Context, podsetHandle PodSetHandle,
+// check if a given pod has anti-affinity with an existing pod on the given node.
+func (p *podAntiAffinity) Filter(parentCtx context.Context,
+	podsetHandle PodSetHandle,
 	pod *v1.Pod, node *v1.Node) *framework.Status {
 
 	ctx, cancel := context.WithTimeout(parentCtx, p.handle.CallTimeout())
@@ -59,7 +64,6 @@ func (p *podAntiAffinity) checkPodsWithAntiAffinityExist(parentCtx context.Conte
 	defer cancel()
 
 	podsetPods, err := podsetHandle.List(ctx, node)
-
 	if err != nil {
 		return framework.AsStatus(err)
 	}
@@ -68,24 +72,22 @@ func (p *podAntiAffinity) checkPodsWithAntiAffinityExist(parentCtx context.Conte
 	pods = mergePods(pods, podsetPods)
 
 	if affinity != nil && affinity.PodAntiAffinity != nil {
+		affinityTerms := getPodAntiAffinityTerms(affinity.PodAntiAffinity)
 
-		for _, term := range getPodAntiAffinityTerms(affinity.PodAntiAffinity) {
-
-			namespaces := utils.GetNamespacesFromPodAffinityTerm(pod, &term)
+		for index := range affinityTerms {
+			term := &affinityTerms[index]
+			namespaces := utils.GetNamespacesFromPodAffinityTerm(pod, term)
 
 			selector, err := metav1.LabelSelectorAsSelector(term.LabelSelector)
 			if err != nil {
-
 				return framework.NewStatus(framework.Unschedulable)
 			}
 
 			for _, existingPod := range pods {
-
 				if existingPod.Name != pod.Name &&
 					utils.PodMatchesTermsNamespaceAndSelector(existingPod,
 						namespaces,
 						selector) {
-
 					return framework.NewStatus(framework.Unschedulable)
 				}
 			}
@@ -97,9 +99,7 @@ func (p *podAntiAffinity) checkPodsWithAntiAffinityExist(parentCtx context.Conte
 
 // getPodAntiAffinityTerms gets the antiaffinity terms for the given pod.
 func getPodAntiAffinityTerms(podAntiAffinity *v1.PodAntiAffinity) []v1.PodAffinityTerm {
-
 	if podAntiAffinity == nil {
-
 		return []v1.PodAffinityTerm{}
 	}
 

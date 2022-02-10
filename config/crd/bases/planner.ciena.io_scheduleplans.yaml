@@ -41,11 +41,13 @@ spec:
           metadata:
             type: object
           spec:
-            description: SchedulePlan defines a plan for a pod-set containing the
-              pod to node assignments
+            description: SchedulePlanSpec defines a plan for a pod-set containing
+              the pod to node assignments.
             properties:
               plan:
                 items:
+                  description: PlanSpec defines a plan spec for pod to node assignments
+                    for a pod-set.
                   properties:
                     node:
                       type: string
@@ -60,6 +62,7 @@ spec:
             - plan
             type: object
           status:
+            description: SchedulePlanStatus defines the plan status for a pod-set
             type: object
         required:
         - spec

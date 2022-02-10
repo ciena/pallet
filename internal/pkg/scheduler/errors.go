@@ -35,10 +35,9 @@ var (
 	// valid type.
 	ErrInvalidAssignmentState = errors.New("invalid-assignment-state")
 
-	// ErrBuildingPlan returned when there was an error trying to build schedule plan
+	// ErrBuildingPlan returned when there was an error trying to build schedule plan.
 	ErrBuildingPlan = errors.New("plan-build-failure")
 
-	//ErrPodNotAssignable is returned when trigger is not active
-
+	// ErrPodNotAssignable returned when a pod cannot be scheduled to a node.
 	ErrPodNotAssignable = errors.New("pod-cannot-be-assigned")
 )

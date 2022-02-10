@@ -41,8 +41,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: ScheduleTrigger defines an event indicating that the pod-set
-              can be transitioned from planning to schedule state
+            description: ScheduleTriggerSpec defines an event indicating that the
+              pod-set can be transitioned from planning to schedule state.
             properties:
               state:
                 enum:
@@ -53,6 +53,7 @@ spec:
             - state
             type: object
           status:
+            description: ScheduleTriggerStatus defines the status for a trigger.
             type: object
         required:
         - spec

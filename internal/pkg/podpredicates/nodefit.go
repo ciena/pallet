@@ -3,7 +3,8 @@ package podpredicates
 import (
 	"context"
 	"fmt"
-	"k8s.io/api/core/v1"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
@@ -23,10 +24,11 @@ type Resource struct {
 	ScalarResources map[v1.ResourceName]int64
 }
 
-// NewResource creates a Resource from ResourceList
+// NewResource creates a Resource from ResourceList.
 func NewResource(rl v1.ResourceList) *Resource {
 	r := &Resource{}
 	r.Add(rl)
+
 	return r
 }
 
@@ -36,7 +38,10 @@ func (r *Resource) Add(rl v1.ResourceList) {
 		return
 	}
 
-	for rName, rQuant := range rl {
+	for rName := range rl {
+		rQuant := rl[rName]
+
+		//nolint:exhaustive
 		switch rName {
 		case v1.ResourceCPU:
 			r.MilliCPU += rQuant.MilliValue()
@@ -66,12 +71,14 @@ func (r *Resource) ResourceList() v1.ResourceList {
 		v1.ResourceEphemeralStorage: *resource.NewQuantity(r.EphemeralStorage, resource.BinarySI),
 	}
 	for rName, rQuant := range r.ScalarResources {
+
 		if IsHugePageResourceName(rName) {
 			result[rName] = *resource.NewQuantity(rQuant, resource.BinarySI)
 		} else {
 			result[rName] = *resource.NewQuantity(rQuant, resource.DecimalSI)
 		}
 	}
+
 	return result
 }
 
@@ -89,6 +96,7 @@ func (r *Resource) Clone() *Resource {
 			res.ScalarResources[k] = v
 		}
 	}
+
 	return res
 }
 
@@ -103,6 +111,7 @@ func (r *Resource) SetScalar(name v1.ResourceName, quantity int64) {
 	if r.ScalarResources == nil {
 		r.ScalarResources = map[v1.ResourceName]int64{}
 	}
+
 	r.ScalarResources[name] = quantity
 }
 
@@ -112,7 +121,10 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 		return
 	}
 
-	for rName, rQuantity := range rl {
+	for rName := range rl {
+		rQuantity := rl[rName]
+
+		//nolint:exhaustive
 		switch rName {
 		case v1.ResourceMemory:
 			if mem := rQuantity.Value(); mem > r.Memory {
@@ -139,13 +151,13 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 
 func computePodResourceRequest(pod *v1.Pod) *Resource {
 	result := &Resource{}
-	for _, container := range pod.Spec.Containers {
-		result.Add(container.Resources.Requests)
+	for i := range pod.Spec.Containers {
+		result.Add(pod.Spec.Containers[i].Resources.Requests)
 	}
 
 	// take max_resource(sum_pod, any_init_container)
-	for _, container := range pod.Spec.InitContainers {
-		result.SetMaxResource(container.Resources.Requests)
+	for i := range pod.Spec.InitContainers {
+		result.SetMaxResource(pod.Spec.InitContainers[i].Resources.Requests)
 	}
 
 	// If Overhead is being utilized, add to the total requests for the pod
@@ -164,9 +176,12 @@ const (
 	podFitsNodeName = "PodFitsNode"
 )
 
-var _ Predicate = &podFitsNode{}
-var _ FilterPredicate = &podFitsNode{}
+var (
+	_ Predicate       = &podFitsNode{}
+	_ FilterPredicate = &podFitsNode{}
+)
 
+//nolint:unparam
 func newPodFitsNodePredicate(
 	handle PredicateHandle) (*podFitsNode, error) {
 
@@ -178,7 +193,7 @@ func (p *podFitsNode) Name() string {
 	return podFitsNodeName
 }
 
-// Filter checks if pod fits node resource/taints
+// Filter checks if pod fits node resource/taints.
 func (p *podFitsNode) Filter(_ context.Context,
 	_ PodSetHandle,
 	pod *v1.Pod,
@@ -188,7 +203,6 @@ func (p *podFitsNode) Filter(_ context.Context,
 	if ok := descheduler_utils.TolerationsTolerateTaintsWithFilter(
 		pod.Spec.Tolerations, node.Spec.Taints,
 		func(taint *v1.Taint) bool {
-
 			return taint.Effect == v1.TaintEffectNoSchedule
 		}); !ok {
 
@@ -197,7 +211,6 @@ func (p *podFitsNode) Filter(_ context.Context,
 
 	// check for node label and affinity
 	if ok := descheduler_nodeutil.PodFitsCurrentNode(pod, node); !ok {
-
 		return framework.NewStatus(framework.Unschedulable)
 	}
 

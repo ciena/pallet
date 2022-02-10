@@ -20,15 +20,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SchedulePlan defines a plan for a pod-set containing the pod to node assignments
+// SchedulePlanSpec defines a plan for a pod-set containing the pod to node assignments.
 type SchedulePlanSpec struct {
 	// +kubebuilder:validation:Required
 	Plan []PlanSpec `json:"plan"`
 }
 
-type SchedulePlanStatus struct {
-}
+// SchedulePlanStatus defines the plan status for a pod-set
+type SchedulePlanStatus struct{}
 
+// PlanSpec defines a plan spec for pod to node assignments for a pod-set.
 type PlanSpec struct {
 	// +kubebuilder:validation:Required
 	Pod string `json:"pod"`
@@ -44,9 +45,12 @@ type PlanSpec struct {
 // +kubebuilder:printcolumn:name="Plan",type="string",JSONPath=".spec.plan",priority=1
 
 // SchedulePlan is the Schema for the schedulePlan api
-// +genclient
+// +genclient.
 type SchedulePlan struct {
-	metav1.TypeMeta   `json:",inline"`
+	//nolint: tagliatelle
+	metav1.TypeMeta `json:",inline"`
+
+	//nolint: tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -58,13 +62,16 @@ type SchedulePlan struct {
 
 // +kubebuilder:object:root=true
 
-// SchedulePlanList contains a list of schedule plans
+// SchedulePlanList contains a list of schedule plans.
 type SchedulePlanList struct {
+	//nolint: tagliatelle
 	metav1.TypeMeta `json:",inline"`
+	//nolint: tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SchedulePlan `json:"items"`
 }
 
+//nolint: gochecknoinits
 func init() {
 	SchemeBuilder.Register(&SchedulePlan{}, &SchedulePlanList{})
 }

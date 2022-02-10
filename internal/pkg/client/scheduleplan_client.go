@@ -18,53 +18,62 @@ package client
 
 import (
 	"context"
+	"fmt"
+
 	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	options "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// SchedulePlannerClient stores schedule planner client info.
 type SchedulePlannerClient struct {
 	Client client.Client
 	Log    logr.Logger
 }
 
+// NewPlannerClient creates a new schedule planner client instance.
 func NewPlannerClient(c client.Client, log logr.Logger) *SchedulePlannerClient {
 	return &SchedulePlannerClient{Client: c, Log: log}
 }
 
-func (c *SchedulePlannerClient) List(ctx context.Context, namespace string, labels map[string]string) (*plannerv1alpha1.SchedulePlanList, error) {
+// List lists the schedule planner resources by namespace and labels.
+func (c *SchedulePlannerClient) List(ctx context.Context,
+	namespace string,
+	labels map[string]string) (*plannerv1alpha1.SchedulePlanList, error) {
 	var planList plannerv1alpha1.SchedulePlanList
 
 	err := c.Client.List(ctx, &planList,
-		options.InNamespace(namespace),
-		options.MatchingLabels(labels))
-
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels))
 	if err != nil {
 		c.Log.Error(err, "error-listing-planner", "namespace", namespace, "labels", labels)
+
 		return nil, err
 	}
 
 	return &planList, nil
 }
 
-func (c *SchedulePlannerClient) Get(ctx context.Context, namespace, podset string) (*plannerv1alpha1.SchedulePlan, error) {
+// Get gets the schedule planner resource by namespace and podset.
+func (c *SchedulePlannerClient) Get(ctx context.Context,
+	namespace, podset string) (*plannerv1alpha1.SchedulePlan, error) {
 	var plan plannerv1alpha1.SchedulePlan
 
 	name := getName(namespace, podset)
 
 	err := c.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &plan)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting planner: %w", err)
 	}
 
 	return &plan, nil
 }
 
-func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, podset string,
+// CreateOrUpdate creates or updates planner spec assignments by namespace and podset.
+func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context,
+	namespace, podset string,
 	assignments map[string]string) error {
-
 	planRef, err := c.Get(ctx, namespace, podset)
 	if err != nil {
 		var newPlan []plannerv1alpha1.PlanSpec
@@ -91,6 +100,7 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 		err = c.Client.Create(ctx, &plan)
 		if err != nil {
 			c.Log.Error(err, "error-creating-schedule-plan", "podset", podset)
+
 			return err
 		}
 
@@ -99,14 +109,15 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 		return nil
 	}
 
-	//update the plan spec if pod and node assignment has changed
+	// update the plan spec if pod and node assignment has changed
 	var newPlan []plannerv1alpha1.PlanSpec
+
 	var currentPlan []plannerv1alpha1.PlanSpec
 
 	presenceMap := make(map[plannerv1alpha1.PlanSpec]struct{}, len(planRef.Spec.Plan))
 
-	for _, planSpec := range planRef.Spec.Plan {
-		presenceMap[planSpec] = struct{}{}
+	for i := range planRef.Spec.Plan {
+		presenceMap[planRef.Spec.Plan[i]] = struct{}{}
 	}
 
 	for pod, node := range assignments {
@@ -125,14 +136,15 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 		return nil
 	}
 
-	planRef.Spec.Plan = append(currentPlan, newPlan...)
+	currentPlan = append(currentPlan, newPlan...)
+	planRef.Spec.Plan = currentPlan
 
 	err = c.Client.Update(ctx, planRef)
 	if err != nil {
 		c.Log.Error(err, "plan-crud-update-error", "name", planRef.Name,
 			"podset", podset, "namespace", namespace)
 
-		return err
+		return fmt.Errorf("error updating plan spec: %w", err)
 	}
 
 	c.Log.V(1).Info("plan-update-success", "name", planRef.Name, "podset", podset)
@@ -140,6 +152,7 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context, namespace, p
 	return nil
 }
 
+// Delete deletes schedule planner spec by podname, namespace and podset.
 func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, podset string) (bool, error) {
 	planRef, err := c.Get(ctx, namespace, podset)
 	if err != nil {
@@ -149,24 +162,25 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 	}
 
 	var newPlan []plannerv1alpha1.PlanSpec
-	var found bool = false
 
-	for _, spec := range planRef.Spec.Plan {
-		if spec.Pod == podName {
+	found := false
+
+	for i := range planRef.Spec.Plan {
+
+		if planRef.Spec.Plan[i].Pod == podName {
 			found = true
 		} else {
-			newPlan = append(newPlan, spec)
+			newPlan = append(newPlan, planRef.Spec.Plan[i])
 		}
 	}
 
 	// nothing to update
 	if !found {
-
 		return false, nil
 	}
 
 	if len(newPlan) == 0 {
-		//delete the plan
+		// delete the plan
 		plan := &plannerv1alpha1.SchedulePlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      planRef.Name,
@@ -178,34 +192,35 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 		if err != nil {
 			c.Log.Error(err, "error-deleting-plan", "plan", planRef.Name, "podset", podset)
 
-			return true, err
-		}
-
-		return false, nil
-	} else {
-		planRef.Spec.Plan = newPlan
-
-		err = c.Client.Update(ctx, planRef)
-		if err != nil {
-			c.Log.Error(err, "error-updating-plan-spec", "pod", podName, "podset", podset)
-
-			return true, err
+			return true, fmt.Errorf("error deleting plan: %w", err)
 		}
 
 		return false, nil
 	}
+
+	planRef.Spec.Plan = newPlan
+
+	err = c.Client.Update(ctx, planRef)
+	if err != nil {
+		c.Log.Error(err, "error-updating-plan-spec", "pod", podName, "podset", podset)
+
+		return true, fmt.Errorf("error updating plan spec: %w", err)
+	}
+
+	return false, nil
 }
 
+// CheckIfPodPresent checks if podname is present in the plan spec.
 func (c *SchedulePlannerClient) CheckIfPodPresent(ctx context.Context, namespace, podset, podName string) (bool, *plannerv1alpha1.PlanSpec, error) {
 	plan, err := c.Get(ctx, namespace, podset)
 	if err != nil {
+		//nolint:wrapcheck
 		return false, nil, err
 	}
 
-	for _, spec := range plan.Spec.Plan {
-
-		if spec.Pod == podName {
-			return true, &spec, nil
+	for i := range plan.Spec.Plan {
+		if plan.Spec.Plan[i].Pod == podName {
+			return true, &plan.Spec.Plan[i], nil
 		}
 	}
 

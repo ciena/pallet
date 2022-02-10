@@ -2,10 +2,12 @@ package podpredicates
 
 import (
 	"context"
+
 	v1 "k8s.io/api/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 )
 
+// PodSetHandle defines the interface for a podset used with predicate handler.
 type PodSetHandle interface {
 	// ClientSet returns a k8s clientset
 	ClientSet() clientset.Interface

@@ -16,16 +16,18 @@ package planner
 
 import (
 	"context"
+	"fmt"
+	"net"
+
 	api "github.com/ciena/outbound/pkg/apis/planner"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"net"
 )
 
-// APIServer Structure anchor for the implementation of the telemetry API server
+// APIServer Structure anchor for the implementation of the telemetry API server.
 type APIServer struct {
 	Listen  string
 	Log     logr.Logger
@@ -33,25 +35,28 @@ type APIServer struct {
 	api.UnimplementedSchedulePlannerServer
 }
 
-// Run Processing loop to listen for and dispatch incoming telemetry API requests
+// Run Processing loop to listen for and dispatch incoming telemetry API requests.
 func (a *APIServer) Run() error {
 	lis, err := net.Listen("tcp", a.Listen)
 	if err != nil {
-		return err
+		return fmt.Errorf("error listening on %s: %w", a.Listen, err)
 	}
+
 	grpcServer := grpc.NewServer()
 	api.RegisterSchedulePlannerServer(grpcServer, a)
 	reflection.Register(grpcServer)
+
 	return grpcServer.Serve(lis)
 }
 
-// BuildSchedulePlan builds a schedule plan based on the podset for the namespace
+// BuildSchedulePlan builds a schedule plan based on the podset for the namespace.
 func (a *APIServer) BuildSchedulePlan(ctx context.Context, in *api.SchedulePlanRequest) (*api.SchedulePlanResponse, error) {
 	a.Log.Info("build-schedule-plan-request", "request", in)
 
 	assignments, err := a.Planner.BuildSchedulePlan(ctx, in.Namespace, in.PodSet,
 		in.ScheduledPod, in.EligibleNodes)
 	if err != nil {
+		//nolint:wrapcheck
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

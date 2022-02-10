@@ -19,24 +19,25 @@ package planner
 import (
 	"context"
 
+	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
 )
 
-// SchedulePlanReconciler reconciles a SchedulePlan object
+// SchedulePlanReconciler reconciles a SchedulePlan object.
 type SchedulePlanReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
+// nolint:lll
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduleplans,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=planner.ciena.io,resources=scheduleplans/status,verbs=get;update;patch
 
+// Reconcile evaluates updates to scheduleplan
 func (r *SchedulePlanReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("scheduleplan", req.NamespacedName)
@@ -46,7 +47,9 @@ func (r *SchedulePlanReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager sets up the controller with the Manager.
 func (r *SchedulePlanReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// nolint:wrapcheck
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&plannerv1alpha1.SchedulePlan{}).
 		Complete(r)

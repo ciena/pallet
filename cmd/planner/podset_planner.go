@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/ciena/outbound/internal/pkg/client"
 	"github.com/ciena/outbound/internal/pkg/parallelize"
 	"github.com/ciena/outbound/internal/pkg/planner"
@@ -29,8 +32,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"time"
+)
+
+const (
+	defaultCallTimeout        = 15 * time.Second
+	defaultUpdateWorkerPeriod = 15 * time.Second
 )
 
 type configSpec struct {
@@ -48,24 +54,29 @@ func getClients(kubeconfig string,
 	log logr.Logger) (*kubernetes.Clientset, *client.SchedulePlannerClient, error) {
 
 	var config *rest.Config
+
 	var err error
 
 	if kubeconfig == "" {
 		if config, err = rest.InClusterConfig(); err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("could not get cluster config: %w", err)
 		}
 	} else {
 		if config, err = clientcmd.BuildConfigFromFlags("", kubeconfig); err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("could not build config from flags: %w", err)
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("could not get k8s clientset: %w", err)
 	}
 
 	plannerClient, err := client.NewSchedulePlannerClient(config, log.WithName("planner-client"))
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get planner client: %w", err)
+	}
 
 	return clientset, plannerClient, nil
 }
@@ -80,10 +91,10 @@ func main() {
 		"debug", true,
 		"Display debug logging messages")
 	flag.DurationVar(&config.CallTimeout,
-		"call-timeout", time.Second*15,
+		"call-timeout", defaultCallTimeout,
 		"GRPC call timeout")
 	flag.DurationVar(&config.UpdateWorkerPeriod,
-		"update-worker-period", time.Second*15,
+		"update-worker-period", defaultUpdateWorkerPeriod,
 		"The update period to retry resource updates on failures")
 
 	flag.IntVar(&config.Parallelism,
@@ -103,26 +114,31 @@ func main() {
 
 	if config.ShowVersion {
 		if config.ShowVersionAsJSON {
+			// nolint:errchkjson
 			bytes, _ := json.Marshal(version.Version())
 			fmt.Println(string(bytes))
 		} else {
 			fmt.Println(version.Version().String())
 		}
+
 		os.Exit(0)
 	}
 
 	var log logr.Logger
+
 	if config.Debug {
 		zapLog, err := zap.NewDevelopment()
 		if err != nil {
 			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 		}
+
 		log = zapr.NewLogger(zapLog)
 	} else {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
 			panic(fmt.Sprintf("who watches the watchmen (%v)?", err))
 		}
+
 		log = zapr.NewLogger(zapLog)
 	}
 
@@ -141,7 +157,6 @@ func main() {
 		plannerClient,
 		log.WithName("planner"),
 	)
-
 	if err != nil {
 		panic(err.Error())
 	}
@@ -161,5 +176,4 @@ func main() {
 
 	// wait forever
 	select {}
-
 }

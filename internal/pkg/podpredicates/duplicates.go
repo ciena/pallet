@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	podutil "sigs.k8s.io/descheduler/pkg/descheduler/pod"
-
 	"k8s.io/kubernetes/pkg/scheduler/framework"
+	podutil "sigs.k8s.io/descheduler/pkg/descheduler/pod"
 )
 
 const (
@@ -20,9 +19,12 @@ type podIsADuplicate struct {
 	handle PredicateHandle
 }
 
-var _ Predicate = &podIsADuplicate{}
-var _ FilterPredicate = &podIsADuplicate{}
+var (
+	_ Predicate       = &podIsADuplicate{}
+	_ FilterPredicate = &podIsADuplicate{}
+)
 
+//nolint:unparam
 func newPodIsADuplicatePredicate(handle PredicateHandle) (*podIsADuplicate, error) {
 
 	return &podIsADuplicate{handle: handle}, nil
@@ -40,11 +42,12 @@ func (p *podIsADuplicate) Filter(
 	parentCtx context.Context,
 	podsetHandle PodSetHandle,
 	pod *v1.Pod,
-	node *v1.Node) *framework.Status {
+	node *v1.Node,
+) *framework.Status {
 
 	ctx, cancel := context.WithTimeout(parentCtx, p.handle.CallTimeout())
-
 	podsetPods, err := podsetHandle.List(ctx, node)
+
 	cancel()
 
 	if err != nil {
@@ -63,7 +66,6 @@ func (p *podIsADuplicate) Filter(
 
 	givenPodContainerKeys := getPodContainerKeys(pod)
 	for _, p := range pods {
-
 		// skip terminating pods
 		if p.GetDeletionTimestamp() != nil {
 			continue
@@ -71,7 +73,6 @@ func (p *podIsADuplicate) Filter(
 
 		podContainerKeys := getPodContainerKeys(p)
 		if reflect.DeepEqual(givenPodContainerKeys, podContainerKeys) {
-
 			// given pod is a duplicate of another pod on this node
 			return framework.NewStatus(framework.Unschedulable)
 		}
@@ -83,8 +84,14 @@ func (p *podIsADuplicate) Filter(
 func getPodContainerKeys(pod *v1.Pod) []string {
 	ownerRefList := podutil.OwnerRef(pod)
 	podContainerKeys := make([]string, 0, len(ownerRefList)*len(pod.Spec.Containers))
-	for _, ownerRef := range ownerRefList {
-		for _, container := range pod.Spec.Containers {
+
+	for i := range ownerRefList {
+		ownerRef := &ownerRefList[i]
+
+		for j := range pod.Spec.Containers {
+
+			container := &pod.Spec.Containers[j]
+
 			// Namespace/Kind/Name should be unique for the cluster.
 			// We also consider the image, as 2 pods could have the same owner but serve different purposes
 			// So any non-unique Namespace/Kind/Name/Image pattern is a duplicate pod.
@@ -92,6 +99,8 @@ func getPodContainerKeys(pod *v1.Pod) []string {
 			podContainerKeys = append(podContainerKeys, s)
 		}
 	}
+
 	sort.Strings(podContainerKeys)
+
 	return podContainerKeys
 }

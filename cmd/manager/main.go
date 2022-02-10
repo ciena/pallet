@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	controllers "github.com/ciena/outbound/controllers/planner"
 	psv1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
@@ -43,10 +42,7 @@ var (
 )
 
 const (
-	leaderElectionID          = "64e1845a-5786-11ec-bf63-0242ac130002.ciena.com"
-	defaultRPCTimeout         = 10 * time.Second
-	defaultEvaluationInterval = 10 * time.Second
-	defaultErrorInterval      = 10 * time.Second
+	leaderElectionID = "64e1845a-5786-11ec-bf63-0242ac130002.ciena.com"
 )
 
 // nolint:gochecknoinits,wsl

@@ -32,13 +32,14 @@ type PodSetPlannerArgs struct {
 	UpdatePeriod    string `json:"updatePeriod,omitempty"`
 }
 
+//PodSetPlannerOptions is a set of options used while initializing a podset scheduler.
 type PodSetPlannerOptions struct {
 	Debug        bool
 	CallTimeout  time.Duration
 	UpdatePeriod time.Duration
 }
 
-// DefaultPodSetPlannerConfig returns the default options for scheduler.
+// DefaultPodSetPlannerConfig returns the default options for podset scheduler.
 func DefaultPodSetPlannerConfig() *PodSetPlannerOptions {
 	// nolint:gomnd
 	return &PodSetPlannerOptions{

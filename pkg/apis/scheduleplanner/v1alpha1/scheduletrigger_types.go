@@ -20,15 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ScheduleTrigger defines an event indicating that the pod-set can be transitioned from planning to schedule state
+// ScheduleTriggerSpec defines an event indicating that the pod-set can be transitioned from planning to schedule state.
 type ScheduleTriggerSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=Planning;Schedule
 	State string `json:"state"`
 }
 
-type ScheduleTriggerStatus struct {
-}
+// ScheduleTriggerStatus defines the status for a trigger.
+type ScheduleTriggerStatus struct{}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -37,9 +37,12 @@ type ScheduleTriggerStatus struct {
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.state",priority=1
 
 // ScheduleTrigger is the Schema for the scheduleTrigger api
-// +genclient
+// +genclient.
 type ScheduleTrigger struct {
-	metav1.TypeMeta   `json:",inline"`
+	//nolint: tagliatelle
+	metav1.TypeMeta `json:",inline"`
+
+	//nolint: tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -51,13 +54,16 @@ type ScheduleTrigger struct {
 
 // +kubebuilder:object:root=true
 
-// ScheduleTriggerList contains a list of schedule triggers
+// ScheduleTriggerList contains a list of schedule triggers.
 type ScheduleTriggerList struct {
+	//nolint: tagliatelle
 	metav1.TypeMeta `json:",inline"`
+	//nolint: tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ScheduleTrigger `json:"items"`
 }
 
+//nolint: gochecknoinits
 func init() {
 	SchemeBuilder.Register(&ScheduleTrigger{}, &ScheduleTriggerList{})
 }

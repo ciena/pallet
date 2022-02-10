@@ -12,14 +12,17 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
+//Predicate defines an interface to implement predicates.
 type Predicate interface {
 	Name() string
 }
 
+//PredicateHandle defines a handle used while initializing the predicate.
 type PredicateHandle interface {
 	CallTimeout() time.Duration
 }
 
+//FilterPredicate defines an interface to implement filter predicate.
 type FilterPredicate interface {
 	Predicate
 	Filter(ctx context.Context, podsetHandle PodSetHandle, pod *v1.Pod, node *v1.Node) *framework.Status
@@ -31,6 +34,7 @@ type predicateOption struct {
 	parallelism       int
 }
 
+//PredicateHandler is a framework used to run through all the predicates.
 type PredicateHandler struct {
 	parallelizer     *parallelize.Parallelizer
 	predicateMap     map[string]Predicate
@@ -43,8 +47,10 @@ type extensionPoint struct {
 	slicePtr interface{}
 }
 
+//PredicateFactory is the initialization routine used to create a new predicate instance.
 type PredicateFactory func(handle PredicateHandle) (Predicate, error)
 
+//Option is the option used while creating the predicate handler.
 type Option func(o *predicateOption)
 
 const (
@@ -59,29 +65,30 @@ func (p *predicateHandleImpl) CallTimeout() time.Duration {
 	return p.callTimeout
 }
 
+//WithCallTimeout is the grpc timeout to be used while accessing remotes with predicates.
 func WithCallTimeout(timeout time.Duration) Option {
-
 	return func(o *predicateOption) {
 		o.callTimeout = timeout
 	}
 }
 
+//WithOutOfTreeRegistry is used to register a custom predicate.
 func WithOutOfTreeRegistry(registry Registry) Option {
-
 	return func(o *predicateOption) {
 		o.outOfTreeRegistry = registry
 	}
 }
 
+//WithParallelism defines the parallelism factor used while running the filter predicates.
 func WithParallelism(p int) Option {
-
 	return func(o *predicateOption) {
 		o.parallelism = p
 	}
-
 }
 
+//New is used to create a predicateHandler instance.
 func New(opts ...Option) (*PredicateHandler, error) {
+
 	popt := predicateOption{
 		callTimeout: defaultCallTimeout,
 	}
@@ -147,6 +154,8 @@ func (p *PredicateHandler) RunFilterPredicates(ctx context.Context,
 	return framework.NewStatus(framework.Success)
 }
 
+//FindNodesThatPassFilters is used to find an eligible nodeset from all eligible nodes
+//that pass filter predicate for a given pod
 func (p *PredicateHandler) FindNodesThatPassFilters(parentCtx context.Context,
 	podsetHandle PodSetHandle,
 	pod *v1.Pod,
@@ -179,6 +188,7 @@ func (p *PredicateHandler) FindNodesThatPassFilters(parentCtx context.Context,
 }
 
 func updatePredicateList(predicateList interface{}, predicateMap map[string]Predicate) error {
+
 	predicates := reflect.ValueOf(predicateList).Elem()
 	predicateType := predicates.Type().Elem()
 

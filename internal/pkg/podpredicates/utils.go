@@ -16,8 +16,10 @@ func mergePods(set1 []*v1.Pod, set2 []*v1.Pod) []*v1.Pod {
 	}
 
 	for _, pod := range set2 {
-		if _, ok := presenceMap[ktypes.NamespacedName{Name: pod.Name,
-			Namespace: pod.Namespace}]; ok {
+		if _, ok := presenceMap[ktypes.NamespacedName{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+		}]; ok {
 			continue
 		}
 
