@@ -46,11 +46,14 @@ func (a *APIServer) Run() error {
 	api.RegisterSchedulePlannerServer(grpcServer, a)
 	reflection.Register(grpcServer)
 
+	//nolint: wrapcheck
 	return grpcServer.Serve(lis)
 }
 
 // BuildSchedulePlan builds a schedule plan based on the podset for the namespace.
-func (a *APIServer) BuildSchedulePlan(ctx context.Context, in *api.SchedulePlanRequest) (*api.SchedulePlanResponse, error) {
+func (a *APIServer) BuildSchedulePlan(ctx context.Context,
+	in *api.SchedulePlanRequest) (*api.SchedulePlanResponse, error) {
+
 	a.Log.Info("build-schedule-plan-request", "request", in)
 
 	assignments, err := a.Planner.BuildSchedulePlan(ctx, in.Namespace, in.PodSet,

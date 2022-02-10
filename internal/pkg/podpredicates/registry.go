@@ -1,7 +1,9 @@
 package podpredicates
 
+// Registry contains a map of predicates to their initialization function.
 type Registry map[string]PredicateFactory
 
+// Add is used to add a predicate with its init function to the registry.
 func (r Registry) Add(name string, factory PredicateFactory) error {
 	if _, ok := r[name]; ok {
 		return ErrAlreadyExists
@@ -13,8 +15,8 @@ func (r Registry) Add(name string, factory PredicateFactory) error {
 }
 
 // Merge is used to merge new registry into the current registry.
-func (r Registry) Merge(new Registry) error {
-	for name, factory := range new {
+func (r Registry) Merge(newr Registry) error {
+	for name, factory := range newr {
 		if err := r.Add(name, factory); err != nil {
 			return err
 		}

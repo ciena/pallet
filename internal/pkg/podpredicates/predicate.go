@@ -12,6 +12,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
+// Predicate defines an interface to implement predicate handlers.
 type Predicate interface {
 	Name() string
 }
@@ -21,6 +22,7 @@ type PredicateHandle interface {
 	CallTimeout() time.Duration
 }
 
+// FilterPredicate defines an interface to implement filter predicate handlers.
 type FilterPredicate interface {
 	Predicate
 	Filter(ctx context.Context, podsetHandle PodSetHandle, pod *v1.Pod, node *v1.Node) *framework.Status
@@ -70,6 +72,7 @@ func WithCallTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithOutOfTreeRegistry is used to extend the built-in registry with a custom set.
 func WithOutOfTreeRegistry(registry Registry) Option {
 	return func(o *predicateOption) {
 		o.outOfTreeRegistry = registry
@@ -136,8 +139,8 @@ func (p *PredicateHandler) getExtensionPoints() []extensionPoint {
 func (p *PredicateHandler) RunFilterPredicates(ctx context.Context,
 	handle PodSetHandle,
 	pod *v1.Pod,
-	node *v1.Node,
-) *framework.Status {
+	node *v1.Node) *framework.Status {
+
 	for _, filterPred := range p.filterPredicates {
 		st := filterPred.Filter(ctx, handle, pod, node)
 		if !st.IsSuccess() {
@@ -148,7 +151,7 @@ func (p *PredicateHandler) RunFilterPredicates(ctx context.Context,
 	return framework.NewStatus(framework.Success)
 }
 
-//that pass filter predicate for a given pod.
+// FindNodesThatPassFilters is used to find eligible nodes for a pod that pass all filters.
 func (p *PredicateHandler) FindNodesThatPassFilters(parentCtx context.Context,
 	podsetHandle PodSetHandle,
 	pod *v1.Pod,

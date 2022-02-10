@@ -220,7 +220,6 @@ func (p *PodSetPlanner) PreScore(
 	if !status.IsSuccess() {
 		// check if the pod does not belong to a podset, or no planners found.
 		// in that case, we allow the default scheduler to schedule the pod
-
 		if status.Equal(framework.AsStatus(ErrNoPodSetFound)) || status.Equal(framework.AsStatus(ErrNoPlannersFound)) {
 			return framework.NewStatus(framework.Success)
 		}
@@ -292,6 +291,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	if err != nil {
 		p.log.V(1).Info("no-trigger-found", "pod", pod.Name, "podset", podset, "namespace", pod.Namespace)
 
+		//nolint: wrapcheck
 		return "", err
 	}
 
@@ -303,9 +303,9 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 	}
 
 	ctx, cancel = context.WithTimeout(parentCtx, p.options.CallTimeout)
-
 	planStatus, planSpec, _ := p.plannerClient.CheckIfPodPresent(ctx,
 		pod.Namespace, podset, pod.Name)
+
 	cancel()
 
 	// pod is in the planspec.

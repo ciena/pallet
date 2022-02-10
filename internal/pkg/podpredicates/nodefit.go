@@ -40,6 +40,7 @@ func (r *Resource) Add(rl v1.ResourceList) {
 	for rName := range rl {
 		rQuant := rl[rName]
 
+		//nolint: exhaustive
 		switch rName {
 		case v1.ResourceCPU:
 			r.MilliCPU += rQuant.MilliValue()
@@ -68,6 +69,7 @@ func (r *Resource) ResourceList() v1.ResourceList {
 		v1.ResourcePods:             *resource.NewQuantity(int64(r.AllowedPodNumber), resource.BinarySI),
 		v1.ResourceEphemeralStorage: *resource.NewQuantity(r.EphemeralStorage, resource.BinarySI),
 	}
+
 	for rName, rQuant := range r.ScalarResources {
 		if IsHugePageResourceName(rName) {
 			result[rName] = *resource.NewQuantity(rQuant, resource.BinarySI)
@@ -121,6 +123,7 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 	for rName := range rl {
 		rQuantity := rl[rName]
 
+		//nolint: exhaustive
 		switch rName {
 		case v1.ResourceMemory:
 			if mem := rQuantity.Value(); mem > r.Memory {

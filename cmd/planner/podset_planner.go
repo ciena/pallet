@@ -115,9 +115,9 @@ func main() {
 		if config.ShowVersionAsJSON {
 			// nolint:errchkjson
 			bytes, _ := json.Marshal(version.Version())
-			fmt.Println(string(bytes))
+			fmt.Fprintln(os.Stdout, string(bytes))
 		} else {
-			fmt.Println(version.Version().String())
+			fmt.Fprintln(os.Stdout, version.Version().String())
 		}
 
 		os.Exit(0)
@@ -147,7 +147,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	podsetPlanner, err := planner.NewPlanner(planner.PlannerOptions{
+	podsetPlanner, err := planner.NewPlanner(planner.Options{
 		CallTimeout:        config.CallTimeout,
 		Parallelism:        config.Parallelism,
 		UpdateWorkerPeriod: config.UpdateWorkerPeriod,

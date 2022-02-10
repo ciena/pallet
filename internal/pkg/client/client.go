@@ -7,8 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-
+	clientscheme "k8s.io/client-go/kubernetes/scheme"
+	// run the init functions as a result of import.
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	ctlrclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,7 +26,7 @@ func init() {
 	schemes := []*runtime.Scheme{plannerScheme, triggerScheme}
 
 	for _, scheme := range schemes {
-		utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+		utilruntime.Must(clientscheme.AddToScheme(scheme))
 		utilruntime.Must(plannerv1alpha1.AddToScheme(scheme))
 	}
 }

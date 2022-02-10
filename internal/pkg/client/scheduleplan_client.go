@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Ciena Corporation..
+Copyright 2022 Ciena Corporation..
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -210,10 +210,13 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 }
 
 // CheckIfPodPresent checks if podname is present in the plan spec.
-func (c *SchedulePlannerClient) CheckIfPodPresent(ctx context.Context, namespace, podset, podName string) (bool, *plannerv1alpha1.PlanSpec, error) {
+func (c *SchedulePlannerClient) CheckIfPodPresent(ctx context.Context,
+	namespace,
+	podset,
+	podName string) (bool, *plannerv1alpha1.PlanSpec, error) {
+
 	plan, err := c.Get(ctx, namespace, podset)
 	if err != nil {
-
 		return false, nil, err
 	}
 

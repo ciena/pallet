@@ -62,13 +62,14 @@ func (p *podIsADuplicate) Filter(
 	pods = mergePods(pods, podsetPods)
 
 	givenPodContainerKeys := getPodContainerKeys(pod)
-	for _, p := range pods {
+
+	for _, pod := range pods {
 		// skip terminating pods
-		if p.GetDeletionTimestamp() != nil {
+		if pod.GetDeletionTimestamp() != nil {
 			continue
 		}
 
-		podContainerKeys := getPodContainerKeys(p)
+		podContainerKeys := getPodContainerKeys(pod)
 		if reflect.DeepEqual(givenPodContainerKeys, podContainerKeys) {
 			// given pod is a duplicate of another pod on this node
 			return framework.NewStatus(framework.Unschedulable)

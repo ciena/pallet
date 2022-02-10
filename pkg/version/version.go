@@ -39,8 +39,8 @@ var (
 	buildDate     string
 )
 
-// VersionSpec defines the version information for the application.
-type VersionSpec struct {
+// Spec defines the version information for the application.
+type Spec struct {
 	Version       string `json:"version,omitempty"`
 	VcsURL        string `json:"vcsUrl,omitempty"`
 	VcsRef        string `json:"vcsRef,omitempty"`
@@ -53,7 +53,7 @@ type VersionSpec struct {
 }
 
 // Version returns the version information for the application.
-func Version() *VersionSpec {
+func Version() *Spec {
 	var dirty *bool
 
 	if vcsDirty != "" {
@@ -62,7 +62,7 @@ func Version() *VersionSpec {
 		}
 	}
 
-	return &VersionSpec{
+	return &Spec{
 		Version:       version,
 		VcsURL:        vcsURL,
 		VcsRef:        vcsRef,
@@ -77,7 +77,7 @@ func Version() *VersionSpec {
 
 // String returns the version information in string form.
 // nolint:gocognit,cyclop
-func (v *VersionSpec) String() string {
+func (v *Spec) String() string {
 	var ver strings.Builder
 
 	if v.Version != "" {

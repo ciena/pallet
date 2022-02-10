@@ -726,7 +726,7 @@ issues:
   new-from-rev: ""
 
   # Fix found issues (if it's supported by the linter)
-  fix: true
+  fix: false
 
 severity:
   # Default value is empty string.

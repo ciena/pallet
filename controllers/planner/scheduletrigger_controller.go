@@ -33,7 +33,10 @@ import (
 type ScheduleTriggerCallback func(ctx context.Context, trigger *plannerv1alpha1.ScheduleTrigger)
 
 const (
+	// Planning indicates that the trigger is in planning state and not active.
 	Planning = "Planning"
+
+	// Schedule indicates that the trigger is in active state for podset planner.
 	Schedule = "Schedule"
 )
 
@@ -188,6 +191,7 @@ func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plann
 
 		r.Log.V(1).Info("quiet-timer-start", "trigger", trigger.Name, "duration", duration)
 
+		//nolint: contextcheck
 		go r.quietTimer(ref, trigger)
 	} else if ref.duration != duration {
 		r.Log.V(1).Info("quiet-timer-reset", "duration", duration)

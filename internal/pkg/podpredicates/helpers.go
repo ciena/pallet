@@ -27,12 +27,12 @@ func IsExtendedResourceName(name v1.ResourceName) bool {
 	return true
 }
 
+// IsAttachableVolumeResourceName checks if the resource is an attachable volume.
 func IsAttachableVolumeResourceName(name v1.ResourceName) bool {
 	return strings.HasPrefix(string(name), v1.ResourceAttachableVolumesPrefix)
 }
 
-// Extended and Hugepages resources.
-
+// IsScalarResourceName checks if the resource is a scalar.
 func IsScalarResourceName(name v1.ResourceName) bool {
 	return IsExtendedResourceName(name) || IsHugePageResourceName(name) ||
 		IsPrefixedNativeResource(name) || IsAttachableVolumeResourceName(name)

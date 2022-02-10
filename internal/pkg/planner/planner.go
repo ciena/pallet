@@ -24,7 +24,7 @@ import (
 
 // PodSetPlanner stores the info related to podset planning.
 type PodSetPlanner struct {
-	options          PlannerOptions
+	options          Options
 	clientset        *kubernetes.Clientset
 	log              logr.Logger
 	quit             chan struct{}
@@ -36,8 +36,8 @@ type PodSetPlanner struct {
 	sync.Mutex
 }
 
-// PlannerOptions is the configurable set of options for creating planner.
-type PlannerOptions struct {
+// Options is the configurable set of options for creating planner.
+type Options struct {
 	CallTimeout        time.Duration
 	Parallelism        int
 	UpdateWorkerPeriod time.Duration
@@ -52,7 +52,7 @@ type workWrapper struct {
 }
 
 // NewPlanner is used to instantate a podset planner.
-func NewPlanner(options PlannerOptions,
+func NewPlanner(options Options,
 	clientset *kubernetes.Clientset,
 	plannerClient *client.SchedulePlannerClient,
 	log logr.Logger) (*PodSetPlanner, error) {
@@ -147,7 +147,8 @@ func initInformers(clientset *kubernetes.Clientset,
 	quit chan struct{},
 	add func(interface{}),
 	update func(interface{}, interface{}),
-	delete func(interface{})) listersv1.NodeLister {
+	del func(interface{})) listersv1.NodeLister {
+
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 	nodeInformer := factory.Core().V1().Nodes()
 
@@ -168,7 +169,7 @@ func initInformers(clientset *kubernetes.Clientset,
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    add,
 		UpdateFunc: update,
-		DeleteFunc: delete,
+		DeleteFunc: del,
 	})
 
 	factory.Start(quit)
@@ -355,6 +356,7 @@ func (p *PodSetPlanner) getEligibleNodes(parentCtx context.Context,
 	return eligibleNodes, nil
 }
 
+// BuildPlan builds the plan for podsets with pod to node assignment map.
 func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	podList []*v1.Pod,
@@ -444,7 +446,7 @@ func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 	if err != nil {
 		p.log.Error(err, "build-schedule-plan-list-pods-error", "podset", podSet)
 
-		return nil, err
+		return nil, fmt.Errorf("schedule plan list pods error: %w", err)
 	}
 
 	podList := make([]*v1.Pod, len(pods.Items))
@@ -492,8 +494,6 @@ func (p *PodSetPlanner) setPodNode(pod *v1.Pod, nodeName string) {
 	p.podToNodeMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}] = nodeName
 }
 
-// Fast version. look up internal cache.
-// look up for the node in the lister cache if pod host ip is not set.
 // GetNodeName returns the nodename for the given pod.
 func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 	if pod.Status.HostIP == "" {

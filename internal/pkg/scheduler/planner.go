@@ -18,6 +18,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
+// Planner is used to store info to lookup podset planner service.
 type Planner struct {
 	Service       v1.Service
 	Namespace     string
@@ -45,12 +46,14 @@ type planReward struct {
 	assignments map[string]string
 }
 
+// NewPlannerService is used to create a new planner service for the podset.
 func NewPlannerService(clnt *client.SchedulePlannerClient, handle framework.Handle,
 	log logr.Logger, callTimeout time.Duration,
 ) *PlannerService {
 	return &PlannerService{clnt: clnt, handle: handle, log: log, callTimeout: callTimeout}
 }
 
+// CreateOrUpdate is used to create or update the plan spec for the podset planner.
 func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 	podset string,
 	assignments map[string]string,
@@ -65,6 +68,7 @@ func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
 	if err != nil {
 		s.log.Error(err, "create-update-plan-failure", "pod", pod.Name)
 
+		//nolint: wrapcheck
 		return err
 	}
 
@@ -215,6 +219,7 @@ func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]strin
 	if err != nil {
 		p.Log.Error(err, "build-schedule-plan-request-error")
 
+		//nolint: wrapcheck
 		return nil, err
 	}
 
