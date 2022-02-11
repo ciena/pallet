@@ -20,6 +20,7 @@ import (
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
 // PodSetPlanner stores the info related to podset planning.
@@ -394,7 +395,7 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 			continue
 		}
 
-		eligibleNodes, err := p.getEligibleNodes(parentCtx, podSetHandler,
+		eligibleNodeNames, err := p.getEligibleNodes(parentCtx, podSetHandler,
 			pod, allEligibleNodes, schedulingMap)
 		if err != nil {
 			p.log.Error(err, "eligible-nodes-not-found", "pod", pod.Name)
@@ -403,7 +404,8 @@ func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 			continue
 		}
 
-		selectedNode, err := p.findFit(parentCtx, pod, eligibleNodes)
+		selectedNode, err := p.findFit(parentCtx, podSetHandler,
+			pod, allEligibleNodes, eligibleNodeNames)
 		if err != nil {
 			p.log.Error(err, "nodes-not-found", "pod", pod.Name)
 			failedPodList = append(failedPodList, pod)
@@ -517,26 +519,81 @@ func (p *PodSetPlanner) GetNodeName(pod *v1.Pod) (string, error) {
 	return "", fmt.Errorf("pod ip %s not found in node lister cache: %w", pod.Status.HostIP, ErrNotFound)
 }
 
-func (p *PodSetPlanner) findFit(_ context.Context, pod *v1.Pod, eligibleNodes []string) (*v1.Node, error) {
-	if len(eligibleNodes) == 0 {
+func (p *PodSetPlanner) findFit(parentCtx context.Context,
+	podSetHandler *podSetHandlerImpl,
+	pod *v1.Pod,
+	eligibleNodes []*v1.Node,
+	eligibleNodeNames []string,
+) (*v1.Node, error) {
+	if len(eligibleNodeNames) == 0 {
 		p.log.V(1).Info("no-eligible-nodes-found", "pod", pod.Name)
 
 		return nil, fmt.Errorf("no-eligible-nodes-found-for-pod-%s: %w", pod.Name, ErrNoNodesFound)
 	}
 
-	selectedNode := eligibleNodes[rand.Intn(len(eligibleNodes))]
+	candidateNodeMap := make(map[string]*v1.Node, len(eligibleNodes))
 
-	nodeInstance, err := p.FindNodeLister(selectedNode)
+	for _, node := range eligibleNodes {
+		candidateNodeMap[node.Name] = node
+	}
+
+	candidateNodes := make([]*v1.Node, len(eligibleNodeNames))
+
+	for index, name := range eligibleNodeNames {
+		candidateNodes[index] = candidateNodeMap[name]
+
+		if candidateNodes[index] == nil {
+			return nil, fmt.Errorf("no-eligible-node-ref-found-for-%s-pod-%s: %w",
+				name, pod.Name, ErrNoNodesFound)
+		}
+	}
+
+	// run through the score predicates.
+	nodeScoreList := p.predicateHandler.RunScorePredicates(parentCtx, podSetHandler, pod, candidateNodes)
+
+	// select the best node based on the scores.
+	nodeName, err := p.selectNode(nodeScoreList)
 	if err != nil {
-		p.log.V(1).Info("node-instance-not-found-in-lister-cache")
+		return nil, fmt.Errorf("select-node-failed-for-pod-%s: %w", pod.Name, err)
+	}
 
-		return nil, err
+	nodeInstance := candidateNodeMap[nodeName]
+	if nodeInstance == nil {
+		return nil, fmt.Errorf("node-instance-not-found-in-cache-for-%s: %w",
+			nodeName, ErrNoNodesFound)
 	}
 
 	p.setPodNode(pod, nodeInstance.Name)
 	p.log.V(1).Info("found-matching", "node", nodeInstance.Name, "pod", pod.Name)
 
 	return nodeInstance, nil
+}
+
+func (p *PodSetPlanner) selectNode(nodeScoreList framework.NodeScoreList) (string, error) {
+	if len(nodeScoreList) == 0 {
+		return "", ErrEmptyPriorityList
+	}
+
+	selectedNode := nodeScoreList[0].Name
+	maxScore := nodeScoreList[0].Score
+	cntOfMaxScores := 1
+
+	for _, nodeScore := range nodeScoreList[1:] {
+		if nodeScore.Score > maxScore {
+			selectedNode = nodeScore.Name
+			maxScore = nodeScore.Score
+			cntOfMaxScores = 1
+		} else if nodeScore.Score == maxScore {
+			cntOfMaxScores++
+
+			// take a probability of 1/cntOfMaxScores to select this node.
+			if rand.Intn(cntOfMaxScores) == 0 {
+				selectedNode = nodeScore.Name
+			}
+		}
+	}
+
+	return selectedNode, nil
 }
 
 // nolint:gochecknoinits

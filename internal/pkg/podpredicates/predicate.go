@@ -2,7 +2,6 @@ package podpredicates
 
 import (
 	"context"
-	"fmt"
 	stdlog "log"
 	"os"
 	"reflect"
@@ -30,7 +29,13 @@ type PredicateHandle interface {
 // FilterPredicate defines an interface to implement filter predicate handlers.
 type FilterPredicate interface {
 	Predicate
-	Filter(ctx context.Context, podsetHandle PodSetHandle, pod *v1.Pod, node *v1.Node) *framework.Status
+	Filter(ctx context.Context, hdl PodSetHandle, pod *v1.Pod, node *v1.Node) *framework.Status
+}
+
+// ScorePredicate defines an interface to implement scoring a node assignment for the pod.
+type ScorePredicate interface {
+	Predicate
+	Score(ctx context.Context, hdl PodSetHandle, pod *v1.Pod, node *v1.Node) (int64, *framework.Status)
 }
 
 type predicateOption struct {
@@ -46,6 +51,7 @@ type PredicateHandler struct {
 	predicateMap     map[string]Predicate
 	registry         Registry
 	filterPredicates []FilterPredicate
+	scorePredicates  []ScorePredicate
 	predicateOption
 }
 
@@ -148,9 +154,7 @@ func New(opts ...Option) (*PredicateHandler, error) {
 	}
 
 	for _, e := range predicateHandler.getExtensionPoints() {
-		if err := updatePredicateList(e.slicePtr, predicateMap); err != nil {
-			return nil, err
-		}
+		updatePredicateList(e.slicePtr, predicateMap)
 	}
 
 	return predicateHandler, nil
@@ -159,6 +163,7 @@ func New(opts ...Option) (*PredicateHandler, error) {
 func (p *PredicateHandler) getExtensionPoints() []extensionPoint {
 	return []extensionPoint{
 		{&p.filterPredicates},
+		{&p.scorePredicates},
 	}
 }
 
@@ -212,20 +217,55 @@ func (p *PredicateHandler) FindNodesThatPassFilters(parentCtx context.Context,
 	return filteredNodes
 }
 
-func updatePredicateList(predicateList interface{}, predicateMap map[string]Predicate) error {
+// RunScorePredicates is used to run all score predicates to determine
+// the best node for the pod.
+func (p *PredicateHandler) RunScorePredicates(ctx context.Context,
+	handle PodSetHandle,
+	pod *v1.Pod,
+	nodes []*v1.Node,
+) framework.NodeScoreList {
+	var nodeScoreList framework.NodeScoreList
+
+	var updateLock sync.Mutex
+
+	scoreNodes := func(index int) {
+		var sum int64
+
+		node := nodes[index]
+
+		for _, scorePred := range p.scorePredicates {
+			score, st := scorePred.Score(ctx, handle, pod, node)
+			if !st.IsSuccess() {
+				continue
+			}
+
+			sum += score
+		}
+
+		updateLock.Lock()
+		nodeScoreList = append(nodeScoreList, framework.NodeScore{
+			Name:  node.Name,
+			Score: sum,
+		})
+		updateLock.Unlock()
+	}
+
+	p.parallelizer.Until(ctx, len(nodes), scoreNodes)
+
+	return nodeScoreList
+}
+
+func updatePredicateList(predicateList interface{}, predicateMap map[string]Predicate) {
 	predicates := reflect.ValueOf(predicateList).Elem()
 	predicateType := predicates.Type().Elem()
 
-	for name, pred := range predicateMap {
+	for _, pred := range predicateMap {
 		if !reflect.TypeOf(pred).Implements(predicateType) {
-			return fmt.Errorf("%w: predicate %s does not extend %s predicate",
-				ErrNoPredicate, name, predicateType.Name())
+			continue
 		}
 
 		newPredicates := reflect.Append(predicates, reflect.ValueOf(pred))
 
 		predicates.Set(newPredicates)
 	}
-
-	return nil
 }

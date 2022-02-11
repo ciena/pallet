@@ -28,4 +28,8 @@ var (
 	// ErrPodNotAssigned returned when a pod has net yet been assigned to
 	// a node.
 	ErrPodNotAssigned = errors.New("pod-not-assigned")
+
+	// ErrEmptyPriorityList returned when no node scores are found to select a
+	// node for the pod.
+	ErrEmptyPriorityList = errors.New("empty-priority-list")
 )
