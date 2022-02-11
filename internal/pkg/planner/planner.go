@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ciena/outbound/internal/pkg/client"
-	"github.com/ciena/outbound/internal/pkg/podpredicates"
+	"github.com/ciena/outbound/pkg/podpredicates"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

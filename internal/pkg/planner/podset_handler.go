@@ -3,7 +3,7 @@ package planner
 import (
 	"context"
 
-	"github.com/ciena/outbound/internal/pkg/podpredicates"
+	"github.com/ciena/outbound/pkg/podpredicates"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )

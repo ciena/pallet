@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/ciena/outbound/internal/pkg/client"
-	"github.com/ciena/outbound/internal/pkg/parallelize"
 	"github.com/ciena/outbound/internal/pkg/planner"
+	"github.com/ciena/outbound/pkg/parallelize"
 	"github.com/ciena/outbound/pkg/version"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"

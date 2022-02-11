@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ciena/outbound/internal/pkg/parallelize"
+	"github.com/ciena/outbound/pkg/parallelize"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/stdr"
 	v1 "k8s.io/api/core/v1"
