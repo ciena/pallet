@@ -18,6 +18,7 @@ go 1.16
 
 require (
 	github.com/go-logr/logr v0.4.0
+	github.com/go-logr/stdr v0.4.0
 	github.com/go-logr/zapr v0.4.0
 	github.com/golang/protobuf v1.5.2
 	github.com/opencontainers/runc v1.0.3 // indirect

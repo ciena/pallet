@@ -1,0 +1,66 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1
+  labels:
+    app: app-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-1
+  template:
+    metadata:
+      name: app-1
+      labels:
+        app: app-1
+        planner.ciena.io/pod-set: planner-podset
+    spec:
+      schedulerName: podset-planner-scheduler
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+           - labelSelector:
+               matchExpressions:
+                 - key: app
+                   operator: In
+                   values:
+                   - app-2
+             topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: app-1
+          image: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-2
+  labels:
+    app: app-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-2
+  template:
+    metadata:
+      name: app-2
+      labels:
+        app: app-2
+        planner.ciena.io/pod-set: planner-podset
+    spec:
+      schedulerName: podset-planner-scheduler
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          -  labelSelector:
+               matchExpressions:
+                 - key: app
+                   operator: In
+                   values:
+                   - app-1
+             topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: app-2
+          image: nginx

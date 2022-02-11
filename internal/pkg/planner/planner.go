@@ -70,6 +70,7 @@ func NewPlanner(options Options,
 	predicateHandler, err := podpredicates.New(
 		podpredicates.WithCallTimeout(options.CallTimeout),
 		podpredicates.WithParallelism(options.Parallelism),
+		podpredicates.WithLogger(log.WithName("pred-handler")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating predicate handler: %w", err)

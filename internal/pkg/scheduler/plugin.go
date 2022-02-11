@@ -58,7 +58,7 @@ var (
 )
 
 // New create a new framework plugin intance.
-// nolint:ireturn
+// nolint: ireturn
 func New(
 	obj runtime.Object, handle framework.Handle) (framework.Plugin, error,
 ) {

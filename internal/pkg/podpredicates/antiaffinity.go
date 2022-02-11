@@ -3,6 +3,7 @@ package podpredicates
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
@@ -12,6 +13,7 @@ import (
 
 type podAntiAffinity struct {
 	handle PredicateHandle
+	log    logr.Logger
 }
 
 const (
@@ -27,6 +29,7 @@ var (
 func newPodAntiAffinityPredicate(handle PredicateHandle) (*podAntiAffinity, error) {
 	return &podAntiAffinity{
 		handle: handle,
+		log:    handle.Log("pod-affinity"),
 	}, nil
 }
 
@@ -86,6 +89,8 @@ func (p *podAntiAffinity) checkPodsWithAntiAffinityExist(parentCtx context.Conte
 					utils.PodMatchesTermsNamespaceAndSelector(existingPod,
 						namespaces,
 						selector) {
+					p.log.V(0).Info("anti-affinity-failed", "pod", pod.Name, "node", node.Name)
+
 					return framework.NewStatus(framework.Unschedulable)
 				}
 			}
@@ -101,5 +106,19 @@ func getPodAntiAffinityTerms(podAntiAffinity *v1.PodAntiAffinity) []v1.PodAffini
 		return []v1.PodAffinityTerm{}
 	}
 
-	return podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	requiredTerms := podAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+
+	// we also honor preferred terms for anti-affinity for constructing our eligible list
+	// as weights could change scoring to a different node than the one we might plan.
+	preferredTerms := podAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+
+	preferredAffinityTerms := make([]v1.PodAffinityTerm, len(preferredTerms))
+
+	for index := range preferredTerms {
+		preferredAffinityTerms[index] = preferredTerms[index].PodAffinityTerm
+	}
+
+	requiredTerms = append(requiredTerms, preferredAffinityTerms...)
+
+	return requiredTerms
 }

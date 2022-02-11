@@ -3,11 +3,15 @@ package podpredicates
 import (
 	"context"
 	"fmt"
+	stdlog "log"
+	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/ciena/outbound/internal/pkg/parallelize"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
@@ -20,6 +24,7 @@ type Predicate interface {
 // PredicateHandle defines a handle used while initializing the predicate.
 type PredicateHandle interface {
 	CallTimeout() time.Duration
+	Log(prefix string) logr.Logger
 }
 
 // FilterPredicate defines an interface to implement filter predicate handlers.
@@ -32,6 +37,7 @@ type predicateOption struct {
 	outOfTreeRegistry Registry
 	callTimeout       time.Duration
 	parallelism       int
+	log               logr.Logger
 }
 
 // PredicateHandler is a framework used to run through all the predicates.
@@ -59,10 +65,15 @@ const (
 
 type predicateHandleImpl struct {
 	callTimeout time.Duration
+	log         logr.Logger
 }
 
 func (p *predicateHandleImpl) CallTimeout() time.Duration {
 	return p.callTimeout
+}
+
+func (p *predicateHandleImpl) Log(prefix string) logr.Logger {
+	return p.log.WithName(prefix)
 }
 
 // WithCallTimeout is the grpc timeout to be used while accessing remotes with predicates.
@@ -86,10 +97,24 @@ func WithParallelism(p int) Option {
 	}
 }
 
+// WithLogger defines the logger to be used with predicate handler.
+func WithLogger(log logr.Logger) Option {
+	return func(o *predicateOption) {
+		o.log = log
+	}
+}
+
+func stdrLogger() logr.Logger {
+	stdr.SetVerbosity(1)
+
+	return stdr.New(stdlog.New(os.Stdout, "pred-handler", stdlog.LstdFlags))
+}
+
 // New is used to create a predicateHandler instance.
 func New(opts ...Option) (*PredicateHandler, error) {
 	popt := predicateOption{
 		callTimeout: defaultCallTimeout,
+		log:         stdrLogger(),
 	}
 
 	for _, opt := range opts {
@@ -104,7 +129,10 @@ func New(opts ...Option) (*PredicateHandler, error) {
 
 	predicateMap := make(map[string]Predicate, len(registry))
 
-	predHandle := &predicateHandleImpl{callTimeout: popt.callTimeout}
+	predHandle := &predicateHandleImpl{
+		callTimeout: popt.callTimeout,
+		log:         popt.log,
+	}
 
 	for name, factory := range registry {
 		if pred, err := factory(predHandle); err == nil {
@@ -179,6 +207,7 @@ func (p *PredicateHandler) FindNodesThatPassFilters(parentCtx context.Context,
 	}
 
 	p.parallelizer.Until(ctx, len(eligibleNodes), check)
+	p.log.V(1).Info("filtered-eligible-nodes", "pod", pod.Name, "nodes", len(filteredNodes))
 
 	return filteredNodes
 }
