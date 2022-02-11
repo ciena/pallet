@@ -53,23 +53,62 @@ func NewPlannerService(clnt *client.SchedulePlannerClient, handle framework.Hand
 	return &PlannerService{clnt: clnt, handle: handle, log: log, callTimeout: callTimeout}
 }
 
-// CreateOrUpdate is used to create or update the plan spec for the podset planner.
-func (s *PlannerService) CreateOrUpdate(parentCtx context.Context, pod *v1.Pod,
+// Update is used to create or update the plan spec for the podset planner.
+func (s *PlannerService) Update(parentCtx context.Context, pod *v1.Pod,
 	podset string,
 	assignments map[string]string,
 ) error {
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
-	err := s.clnt.CreateOrUpdate(ctx,
+	err := s.clnt.Update(ctx,
 		pod.Namespace,
 		podset,
 		assignments)
 	if err != nil {
-		s.log.Error(err, "create-update-plan-failure", "pod", pod.Name)
+		s.log.Error(err, "update-plan-failure", "pod", pod.Name)
 
 		//nolint: wrapcheck
 		return err
+	}
+
+	return nil
+}
+
+// UpdateAssignment is used to update plan spec with the pod and node assignment.
+func (s *PlannerService) UpdateAssignment(parentCtx context.Context, pod *v1.Pod,
+	podset string,
+	nodeName string,
+) error {
+	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
+	defer cancel()
+
+	err := s.clnt.UpdateAssignment(ctx,
+		pod.Namespace,
+		podset,
+		pod.Name,
+		nodeName)
+	if err != nil {
+		s.log.Error(err, "update-plan-assignment-failure", "pod", pod.Name, "node", nodeName)
+
+		//nolint: wrapcheck
+		return err
+	}
+
+	return nil
+}
+
+// Delete is used to delete the assignment for the pod from the planspec.
+func (s *PlannerService) Delete(parentCtx context.Context,
+	pod *v1.Pod,
+	podset string,
+	_ string,
+) error {
+	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
+	defer cancel()
+
+	if _, err := s.clnt.Delete(ctx, pod.Name, pod.Namespace, podset); err != nil {
+		return fmt.Errorf("error deleting pod %s from plan spec: %w", pod.Name, err)
 	}
 
 	return nil

@@ -132,6 +132,9 @@ data:
         score:
           enabled:
           - name: PodSetPlanner
+        reserve:
+          enabled:
+          - name: PodSetPlanner
       pluginConfig:
         - name: PodSetPlanner
           args:

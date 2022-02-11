@@ -70,10 +70,11 @@ func (c *SchedulePlannerClient) Get(ctx context.Context,
 	return &plan, nil
 }
 
-// CreateOrUpdate creates or updates planner spec assignments by namespace and podset.
-func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context,
+// Update updates or creates planner spec assignments by namespace and podset.
+func (c *SchedulePlannerClient) Update(ctx context.Context,
 	namespace, podset string,
-	assignments map[string]string) error {
+	assignments map[string]string,
+) error {
 	planRef, err := c.Get(ctx, namespace, podset)
 	if err != nil {
 		var newPlan []plannerv1alpha1.PlanSpec
@@ -148,6 +149,89 @@ func (c *SchedulePlannerClient) CreateOrUpdate(ctx context.Context,
 	}
 
 	c.Log.V(1).Info("plan-update-success", "name", planRef.Name, "podset", podset)
+
+	return nil
+}
+
+// UpdateAssignment updates or creates planner spec assignment for the pod with the nodename.
+func (c *SchedulePlannerClient) UpdateAssignment(ctx context.Context,
+	namespace, podset string,
+	podName, nodeName string,
+) error {
+	planRef, err := c.Get(ctx, namespace, podset)
+	if err != nil {
+		newPlan := []plannerv1alpha1.PlanSpec{
+			{
+				Pod:  podName,
+				Node: nodeName,
+			},
+		}
+
+		name := getName(namespace, podset)
+		plan := plannerv1alpha1.SchedulePlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+				Labels: map[string]string{
+					"planner.ciena.io/pod-set": podset,
+				},
+			},
+			Spec: plannerv1alpha1.SchedulePlanSpec{
+				Plan: newPlan,
+			},
+		}
+
+		err = c.Client.Create(ctx, &plan)
+		if err != nil {
+			c.Log.Error(err, "error-creating-schedule-plan", "podset", podset,
+				"pod", podName, "node", nodeName)
+
+			return fmt.Errorf("error creating plan spec for pod %s, node %s: %w",
+				podName, nodeName, err)
+		}
+
+		c.Log.V(1).Info("plan-create-success", "name", name, "podset", podset,
+			"pod", podName, "node", nodeName)
+
+		return nil
+	}
+
+	var newPlan []plannerv1alpha1.PlanSpec
+
+	var currentPlan []plannerv1alpha1.PlanSpec
+
+	for i := range planRef.Spec.Plan {
+		plan := planRef.Spec.Plan[i]
+
+		// update the plan spec if there is an assignment change.
+		if plan.Pod == podName && plan.Node != nodeName {
+			newPlan = append(newPlan, plannerv1alpha1.PlanSpec{
+				Pod:  podName,
+				Node: nodeName,
+			})
+		} else {
+			currentPlan = append(currentPlan, plan)
+		}
+	}
+
+	if len(newPlan) == 0 {
+		c.Log.V(1).Info("no-changes-in-planner-assignment", "pod", podName, "node", nodeName)
+
+		return nil
+	}
+
+	currentPlan = append(currentPlan, newPlan...)
+	planRef.Spec.Plan = currentPlan
+
+	err = c.Client.Update(ctx, planRef)
+	if err != nil {
+		c.Log.Error(err, "plan-crud-update-error", "name", planRef.Name,
+			"podset", podset, "namespace", namespace, "pod", podName, "node", nodeName)
+
+		return fmt.Errorf("error updating plan spec for pod %s, node %s: %w", podName, nodeName, err)
+	}
+
+	c.Log.V(1).Info("plan-update-success", "name", planRef.Name, "pod", podName, "node", nodeName)
 
 	return nil
 }

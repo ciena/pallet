@@ -55,6 +55,7 @@ var (
 	_ framework.PreScorePlugin   = &PodSetPlanner{}
 	_ framework.ScorePlugin      = &PodSetPlanner{}
 	_ framework.PostFilterPlugin = &PodSetPlanner{}
+	_ framework.ReservePlugin    = &PodSetPlanner{}
 )
 
 // New create a new framework plugin intance.
@@ -277,6 +278,73 @@ func (p *PodSetPlanner) PostFilter(ctx context.Context,
 	return &framework.PostFilterResult{NominatedNodeName: assignmentState.node}, framework.NewStatus(framework.Success)
 }
 
+// Reserve is called when the scheduler cache is updated with the nodename for the pod.
+// We do planner assignment state validations for the pod.
+func (p *PodSetPlanner) Reserve(parentCtx context.Context,
+	state *framework.CycleState,
+	pod *v1.Pod,
+	nodeName string,
+) *framework.Status {
+	p.log.V(1).Info("reserve", "pod", pod.Name, "node", nodeName)
+
+	assignmentState, err := getAssignmentState(state)
+	if err != nil {
+		return framework.NewStatus(framework.Success)
+	}
+
+	podset := p.getPodSet(pod)
+	if podset == "" {
+		// if assignment state exists, podset has to be present ideally.
+		// we fail the reservation and retry planner assignment.
+		return framework.AsStatus(ErrNoPodSetFound)
+	}
+
+	// see if there is a mismatch between planner assignment and actual.
+	if assignmentState.node != nodeName {
+		p.log.V(1).Info("reserve-update-assignment", "pod", pod.Name, "node", nodeName)
+
+		err := p.plannerService.UpdateAssignment(parentCtx, pod, podset, nodeName)
+		if err != nil {
+			// we fail reservation on planspec update failure to retry assignment.
+			return framework.AsStatus(err)
+		}
+
+		assignmentState.node = nodeName
+		state.Write(plannerAssignmentStateKey, assignmentState)
+	}
+
+	return framework.NewStatus(framework.Success)
+}
+
+// Unreserve is called when reserved pod was rejected or on reserve error.
+// We undo the assignment and update planner spec by removing the pod assignment.
+func (p *PodSetPlanner) Unreserve(parentCtx context.Context, state *framework.CycleState,
+	pod *v1.Pod,
+	nodeName string,
+) {
+	p.log.V(1).Info("unreserve", "pod", pod.Name, "node", nodeName)
+
+	_, err := getAssignmentState(state)
+	if err != nil {
+		return
+	}
+
+	podset := p.getPodSet(pod)
+	if podset == "" {
+		return
+	}
+
+	err = p.plannerService.Delete(parentCtx, pod, podset, nodeName)
+	if err != nil {
+		p.log.V(1).Info("unreserve-delete-assignment-failed", "pod", pod.Name, "node", nodeName)
+
+		return
+	}
+
+	state.Delete(plannerAssignmentStateKey)
+	p.log.V(1).Info("unreserve-delete-assignment-success", "pod", pod.Name, "node", nodeName)
+}
+
 func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligibleNodes []string) (string, error) {
 	podset := p.getPodSet(pod)
 	if podset == "" {
@@ -345,7 +413,7 @@ func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligible
 		return "", ErrNotFound
 	}
 
-	err = p.plannerService.CreateOrUpdate(parentCtx, pod, podset, assignments)
+	err = p.plannerService.Update(parentCtx, pod, podset, assignments)
 	if err != nil {
 		return "", err
 	}
