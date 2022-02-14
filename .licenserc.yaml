@@ -1,0 +1,22 @@
+header:
+  license:
+    spdx-id: Apache-2.0
+    copyright-owner: Ciena Corporation
+
+  paths:
+    - '**'
+
+  paths-ignore:
+    - '**/*.md'
+    - 'LICENSE'
+    - 'VERSION'
+    - 'PROJECT'
+    - 'vendor/**'
+    - '.*/**'
+    - '.*'
+    - 'config/**'
+    - 'go.sum'
+    - '**/**.pb.go'
+    - '**/*.py'
+
+  comment: on-failure
