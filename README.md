@@ -1,8 +1,8 @@
-# [![outbound](./assets/pallet_64x64_r_bg.png)](https://github.com/ciena/outbound)
+# [![pallet](./assets/pallet_64x64_r_bg.png)](https://github.com/ciena/pallet)
 
 ---
 
-Outbound - Enables delayed scheduling and schedule planning for operator
+Pallet - Enables delayed scheduling and schedule planning for operator
 specified sets of pods.
 
 ## Summary
@@ -13,8 +13,8 @@ includes an attribute that until set will prevent a pod in the set to be
 scheduled to a node. Pods in the set that are already scheduled are not
 effected.
 
-When a pod in a set is attempted to be sccheduled and optional planner can
-be invoked to select a node onto whiccch the pod should be scheduled. When
+When a pod in a set is attempted to be scheduled, an optional planner can
+be invoked to select a node onto which the pod should be scheduled. When
 a pod set is enabled to be scheduled, and if a plan is available, the pods
-in the set are placed on a node based on the associated plan. If not plan
+in the set are placed on a node based on the associated plan. If no plan
 for a set is available pods are scheduled via the default mechanism.
