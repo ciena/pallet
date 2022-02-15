@@ -1,8 +1,8 @@
 # Quick start guide
 
-The purpose of this document is to do a short walkthrough of building, deploying,
-and using the podset planner resources as a way to help demonstrate the
-capability.
+The purpose of this document is to do a short walkthrough of building,
+deploying, and using the podset planner resources as a way to help demonstrate
+the capability.
 
 # Local Kubernetes cluster
 
@@ -16,8 +16,9 @@ Find instructions to install KinD at `https://kind.sigs.k8s.io/docs/user/quick-s
 
 The following script creates a Kubernetes cluster with a single control plane
 node and 3 compute nodes. Additionally, this script creates a local docker
-repository and attaches it to the Kubernetes cluster. This script it based
-on a script on the KinD website: `https://kind.sigs.k8s.io/docs/user/local-registry/`.
+repository and attaches it to the Kubernetes cluster. This script it based on
+a script on the KinD website:
+`https://kind.sigs.k8s.io/docs/user/local-registry/`.
 
 ```bash
 #!/bin/sh
@@ -79,9 +80,9 @@ export DOCKER_REGISTRY=localhost:5000
 
 ## Build and deploy podset planner components
 
-The custom resource definitions (CRDs) are the definitions of the resource type
-introduced by the podset planner. The controllers implement the behaviors for
-those CRDs.
+The custom resource definitions (CRDs) are the definitions of the resource
+type introduced by the podset planner. The controllers implement the behaviors
+for those CRDs.
 
 ```bash
 make docker-build docker-push install deploy
@@ -93,33 +94,29 @@ At this point in the walkthrough you should be able to see an output similar
 to the following when querying Kubernetes for crds, services, and pods.
 
 ```bash
-kubectl get --all-namespaces crd,svc,pod | grep -v kube-system
+$ kubectl get --all-namespaces crd,svc,pod | grep -v kube-system
 NAME                                                                              CREATED AT
-customresourcedefinition.apiextensions.k8s.io/scheduleplans.planner.ciena.io      2022-02-12T00:40:26Z
-customresourcedefinition.apiextensions.k8s.io/scheduletriggers.planner.ciena.io   2022-02-12T00:40:26Z
+customresourcedefinition.apiextensions.k8s.io/scheduleplans.planner.ciena.io      2022-02-15T15:51:53Z
+customresourcedefinition.apiextensions.k8s.io/scheduletriggers.planner.ciena.io   2022-02-15T15:51:53Z
 
 NAMESPACE        NAME                                                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                  AGE
-default          service/kubernetes                                   ClusterIP   10.96.0.1      <none>        443/TCP                  53d
-planner-system   service/planner-controller-manager-metrics-service   ClusterIP   10.96.123.76   <none>        7443/TCP                 2d19h
-planner-system   service/podset-planner                               ClusterIP   10.96.88.251   <none>        7309/TCP                 2d19h
+default          service/kubernetes                                   ClusterIP   10.96.0.1      <none>        443/TCP                  3m40s
+planner-system   service/planner-controller-manager-metrics-service   ClusterIP   10.96.163.91   <none>        7443/TCP                 27s
+planner-system   service/podset-planner                               ClusterIP   10.96.136.74   <none>        7309/TCP                 26s
 
-NAMESPACE            NAME                                                   READY   STATUS    RESTARTS   AGE
-default              pod/app-1-6846584565-v5zzc                             1/1     Running   0          2d17h
-default              pod/app-2-5d9ffd9599-6jr46                             1/1     Running   0          2d17h
-default              pod/weighted-app-1-5d7bcd545f-ww9mr                    1/1     Running   0          2d17h
-default              pod/weighted-app-2-74d77b959f-56bjf                    1/1     Running   0          2d17h
-local-path-storage   pod/local-path-provisioner-85494db59d-8pkp5            1/1     Running   0          53d
-planner-system       pod/planner-controller-manager-6d98846b48-c7pts        2/2     Running   0          2d19h
-planner-system       pod/podset-planner-58b4d67985-wsnsh                    1/1     Running   0          2d19h
-planner-system       pod/podset-planner-scheduler-65c69d8d59-gj5j9          1/1     Running   0          2d19h
+NAMESPACE            NAME                                              READY   STATUS    RESTARTS   AGE
+local-path-storage   pod/local-path-provisioner-547f784dff-zs72k       1/1     Running   0          3m25s
+planner-system       pod/planner-controller-manager-7ddcccdf54-9h8bt   2/2     Running   0          26s
+planner-system       pod/podset-planner-6ffc4b5599-bqh2w               1/1     Running   0          26s
+planner-system       pod/podset-planner-scheduler-774f687f49-hkvlc     1/1     Running   0          26s
 ```
 
 # Deploy initial trigger policies for podset scheduler to schedule pods when trigger is active
 
-The following command will create a `ScheduleTrigger` that is attached to 
+The following command will create a `ScheduleTrigger` that is attached to
 planner-podset via label. It also starts a quiet timer of 2 mins
-to transition the trigger from Planning to Schedule state. The scheduler will 
-only schedule pods for triggers associated with the podset identified by pod label 
+to transition the trigger from Planning to Schedule state. The scheduler will
+only schedule pods for triggers associated with the podset identified by pod label
 that are in Schedule or active state.
 
 ```bash
@@ -137,9 +134,9 @@ Because no active triggers can be found for the podset, `hello-server` and
 
 ```bash
 $ kubectl get po
-NAME                           READY   STATUS    RESTARTS   AGE
-hello-client-69fd7d8c5-swzcl   0/1     Pending   0          10s
-hello-server-74cfb4f9-n6tbt    0/1     Pending   0          10s
+NAME                            READY   STATUS    RESTARTS   AGE
+hello-client-5bb8d986bb-5pxdd   0/1     Pending   0          15s
+hello-server-7b5bbf4454-j9x45   0/1     Pending   0          15s
 ```
 
 # Wait for the schedule trigger to transition to Schedule state from Planning
@@ -149,36 +146,37 @@ associated with default scheduler to invoke the podset-planner-scheduler plugin 
 schedule the podset.
 
 ```bash
-kubectl get scheduletriggers/customtrigger -o wide
+$ kubectl get scheduletriggers/customtrigger -o wide
 NAME            STATE
 customtrigger   Schedule
 ```
 
-Pods will now be scheduled to a node and created. This could take up to a minute more
-after the trigger configuration as the default scheduler has a hard-coded retry of
-unschedulable pods of about 60 seconds.
+Pods will now be scheduled to a node and created. This could take up to a
+minute more after the trigger configuration as the default scheduler has a
+hard-coded retry of unschedulable pods of about 60 seconds.
 
 ```bash
 $ kubectl get pods -o wide
-NAME                           READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
-hello-client-69fd7d8c5-swzcl   1/1     Running   0          13m   10.244.3.3   kind-worker3   <none>           <none>
-hello-server-74cfb4f9-n6tbt    1/1     Running   0          13m   10.244.1.3   kind-worker2   <none>           <none>
+NAME                            READY   STATUS    RESTARTS   AGE    IP           NODE           NOMINATED NODE   READINESS GATES
+hello-client-5bb8d986bb-5pxdd   1/1     Running   0          3m7s   10.244.1.3   kind-worker3   <none>           <none>
+hello-server-7b5bbf4454-j9x45   1/1     Running   0          3m7s   10.244.2.3   kind-worker    <none>           <none>
 ```
 
-Verify the `SchedulePlan` resource is created by the podset planner associated with the pod
-identified by the label: planner.ciena.io/pod-set: planner-podset.
-The planner-podset is a service that creates the pod assignments to the nodes to
-which they are scheduled.
+Verify the `SchedulePlan` resource is created by the podset planner associated
+with the pod identified by the label: planner.ciena.io/pod-set:
+planner-podset. The planner-podset is a service that creates the pod
+assignments to the nodes to which they are scheduled.
 
 ```bash
 $ kubectl get sp -o wide
 NAME                       PLAN
-planner-podset-d4cd7dc68   [{"node":"turnbuckle-worker","pod":"app-2-5d9ffd9599-6jr46"},{"node":"turnbuckle-worker2","pod":"app-1-6846584565-v5zzc"},{"node":"turnbuckle-worker","pod":"weighted-app-2-74d77b959f-56bjf"},{"node":"turnbuckle-worker2","pod":"weighted-app-1-5d7bcd545f-ww9mr"}]
+planner-podset-d4cd7dc68   [{"node":"kind-worker","pod":"hello-server-7b5bbf4454-j9x45"},{"node":"kind-worker3","pod":"hello-client-5bb8d986bb-5pxdd"}]
 ```
 
-The plan has the node assignments that were planned for the podset. This has to
-match the scheduler assignments for the podset. This can be verified by
-using the script planner_verify.py under examples directory which should return success.
+The plan has the node assignments that were planned for the podset. This has
+to match the scheduler assignments for the podset. This can be verified by
+using the script planner_verify.py under examples directory which should
+return success.
 
 ```bash
 $ examples/planner_verify.py
@@ -195,5 +193,3 @@ $ kubectl delete -f examples/wt-deploy.yaml
 $ kubectl get sp -o wide
 No resources found in default namespace.
 ```
-
-
