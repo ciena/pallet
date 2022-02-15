@@ -1,4 +1,4 @@
-<!-- # Quick start guide -->
+# Quick start guide
 
 The purpose of this document is to do a short walkthrough of building,
 deploying, and using the podset planner resources as a way to help demonstrate
