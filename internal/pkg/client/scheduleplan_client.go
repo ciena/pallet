@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
+	plannerv1alpha1 "github.com/ciena/pallet/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -18,7 +18,7 @@ package main
 import (
 	"os"
 
-	ps "github.com/ciena/outbound/internal/pkg/scheduler"
+	ps "github.com/ciena/pallet/pkg/scheduler"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
 )

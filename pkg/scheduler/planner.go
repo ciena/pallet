@@ -23,9 +23,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ciena/outbound/internal/pkg/client"
-	planner "github.com/ciena/outbound/pkg/apis/planner"
-	plannerv1alpha1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
+	"github.com/ciena/pallet/internal/pkg/client"
+	planner "github.com/ciena/pallet/pkg/apis/planner"
+	plannerv1alpha1 "github.com/ciena/pallet/pkg/apis/scheduleplanner/v1alpha1"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"

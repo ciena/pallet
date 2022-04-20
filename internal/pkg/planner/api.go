@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net"
 
-	api "github.com/ciena/outbound/pkg/apis/planner"
+	api "github.com/ciena/pallet/pkg/apis/planner"
 	"github.com/go-logr/logr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

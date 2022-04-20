@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"os"
 
-	controllers "github.com/ciena/outbound/controllers/planner"
-	psv1 "github.com/ciena/outbound/pkg/apis/scheduleplanner/v1alpha1"
+	controllers "github.com/ciena/pallet/controllers/planner"
+	psv1 "github.com/ciena/pallet/pkg/apis/scheduleplanner/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

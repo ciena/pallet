@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/ciena/outbound
+module github.com/ciena/pallet
 
 go 1.16
 
@@ -21,13 +21,10 @@ require (
 	github.com/go-logr/stdr v0.4.0
 	github.com/go-logr/zapr v0.4.0
 	github.com/golang/protobuf v1.5.2
-	github.com/opencontainers/runc v1.0.3 // indirect
 	go.uber.org/zap v1.19.0
 	google.golang.org/grpc v1.40.0
-	google.golang.org/protobuf v1.27.1 // indirect
 	k8s.io/api v0.22.3
 	k8s.io/apimachinery v0.22.3
-	k8s.io/apiserver v0.22.3 // indirect
 	k8s.io/client-go v0.22.3
 	k8s.io/component-base v0.22.3
 	k8s.io/kube-scheduler v0.22.3

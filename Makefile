@@ -73,15 +73,15 @@ endif
 VCS_URL=$(shell git remote get-url $(GIT_TRACKING) | sed -e 's/\/\/[-_:@a-zA-Z0-9]*[:@]/\/\//g')
 
 VERSION_LDFLAGS=\
--X github.com/ciena/outbound/controllers/planner.version="$(VERSION)" \
--X github.com/ciena/outbound/controllers/planner.vcsURL="$(VCS_URL)" \
--X github.com/ciena/outbound/controllers/planner.vcsRef="$(VCS_REF)" \
--X github.com/ciena/outbound/controllers/planner.vcsCommitDate="$(VCS_COMMIT_DATE)" \
--X github.com/ciena/outbound/controllers/planner.vcsDirty="$(VCS_DIRTY)" \
--X github.com/ciena/outbound/controllers/planner.goVersion="$(GO_VERSION)" \
--X github.com/ciena/outbound/controllers/planner.os="$(GO_OS)" \
--X github.com/ciena/outbound/controllers/planner.arch="$(GO_ARCH)" \
--X github.com/ciena/outbound/controllers/planner.buildDate="$(BUILD_DATE)"
+-X github.com/ciena/pallet/controllers/planner.version="$(VERSION)" \
+-X github.com/ciena/pallet/controllers/planner.vcsURL="$(VCS_URL)" \
+-X github.com/ciena/pallet/controllers/planner.vcsRef="$(VCS_REF)" \
+-X github.com/ciena/pallet/controllers/planner.vcsCommitDate="$(VCS_COMMIT_DATE)" \
+-X github.com/ciena/pallet/controllers/planner.vcsDirty="$(VCS_DIRTY)" \
+-X github.com/ciena/pallet/controllers/planner.goVersion="$(GO_VERSION)" \
+-X github.com/ciena/pallet/controllers/planner.os="$(GO_OS)" \
+-X github.com/ciena/pallet/controllers/planner.arch="$(GO_ARCH)" \
+-X github.com/ciena/pallet/controllers/planner.buildDate="$(BUILD_DATE)"
 
 DOCKER_BUILD_ARGS=\
 --build-arg org_label_schema_version="$(VERSION)" \
@@ -127,7 +127,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: generate-plugin-args
 generate-plugin-args: controller-gen
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./internal/pkg/scheduler/config.go"
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./pkg/scheduler/config.go"
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
