@@ -38,10 +38,13 @@ type PlanSpec struct {
 	Node string `json:"node"`
 }
 
+//nolint:lll
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:servedversion
 // +kubebuilder:resource:shortName=sp,scope=Namespaced,singular=scheduleplan
+// +kubebuilder:printcolumn:name="PodSet",type="string",JSONPath=".metadata.labels.planner\\.ciena\\.io/pod-set",priority=0
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
 // +kubebuilder:printcolumn:name="Plan",type="string",JSONPath=".spec.plan",priority=1
 
 // SchedulePlan is the Schema for the schedulePlan api

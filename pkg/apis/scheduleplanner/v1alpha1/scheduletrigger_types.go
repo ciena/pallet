@@ -30,11 +30,15 @@ type ScheduleTriggerSpec struct {
 // ScheduleTriggerStatus defines the status for a trigger.
 type ScheduleTriggerStatus struct{}
 
+//nolint:lll
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:servedversion
 // +kubebuilder:resource:shortName=st,scope=Namespaced,singular=scheduletrigger
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.state",priority=1
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".spec.state",priority=0
+// +kubebuilder:printcolumn:name="PodSet",type="string",JSONPath=".metadata.labels.planner\\.ciena\\.io/pod-set",priority=0
+// +kubebuilder:printcolumn:name="QuietTime",type="string",JSONPath=".metadata.labels.planner\\.ciena\\.io/quiet-time",priority=1
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",priority=0
 
 // ScheduleTrigger is the Schema for the scheduleTrigger api
 // +genclient.
