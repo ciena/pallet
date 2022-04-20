@@ -21,8 +21,17 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.state
       name: State
+      type: string
+    - jsonPath: .metadata.labels.planner\.ciena\.io/pod-set
+      name: PodSet
+      type: string
+    - jsonPath: .metadata.labels.planner\.ciena\.io/quiet-time
+      name: QuietTime
       priority: 1
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:

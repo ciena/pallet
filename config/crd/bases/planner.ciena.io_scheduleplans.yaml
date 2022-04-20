@@ -19,6 +19,12 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.labels.planner\.ciena\.io/pod-set
+      name: PodSet
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - jsonPath: .spec.plan
       name: Plan
       priority: 1

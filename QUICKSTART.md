@@ -135,8 +135,8 @@ Because no active triggers can be found for the podset, `hello-server` and
 ```bash
 $ kubectl get po
 NAME                            READY   STATUS    RESTARTS   AGE
-hello-client-5bb8d986bb-5pxdd   0/1     Pending   0          15s
-hello-server-7b5bbf4454-j9x45   0/1     Pending   0          15s
+hello-client-5bb8d986bb-9sb9l   0/1     Pending   0          15s
+hello-server-7b5bbf4454-m889z   0/1     Pending   0          15s
 ```
 
 # Wait for the schedule trigger to transition to Schedule state from Planning
@@ -147,8 +147,8 @@ schedule the podset.
 
 ```bash
 $ kubectl get scheduletriggers/customtrigger -o wide
-NAME            STATE
-customtrigger   Schedule
+NAME            STATE      PODSET           QUIETTIME   AGE
+customtrigger   Schedule   planner-podset   2m0s        2m46s
 ```
 
 Pods will now be scheduled to a node and created. This could take up to a
@@ -157,9 +157,9 @@ hard-coded retry of unschedulable pods of about 60 seconds.
 
 ```bash
 $ kubectl get pods -o wide
-NAME                            READY   STATUS    RESTARTS   AGE    IP           NODE           NOMINATED NODE   READINESS GATES
-hello-client-5bb8d986bb-5pxdd   1/1     Running   0          3m7s   10.244.1.3   kind-worker3   <none>           <none>
-hello-server-7b5bbf4454-j9x45   1/1     Running   0          3m7s   10.244.2.3   kind-worker    <none>           <none>
+NAME                            READY   STATUS    RESTARTS   AGE     IP           NODE           NOMINATED NODE   READINESS GATES
+hello-client-5bb8d986bb-9sb9l   1/1     Running   0          3m10s   10.244.3.4   kind-worker    <none>           <none>
+hello-server-7b5bbf4454-m889z   1/1     Running   0          3m10s   10.244.2.6   kind-worker3   <none>           <none>
 ```
 
 Verify the `SchedulePlan` resource is created by the podset planner associated
@@ -169,8 +169,8 @@ assignments to the nodes to which they are scheduled.
 
 ```bash
 $ kubectl get sp -o wide
-NAME                       PLAN
-planner-podset-d4cd7dc68   [{"node":"kind-worker","pod":"hello-server-7b5bbf4454-j9x45"},{"node":"kind-worker3","pod":"hello-client-5bb8d986bb-5pxdd"}]
+NAME                       PODSET           AGE     PLAN
+planner-podset-d4cd7dc68   planner-podset   2m21s   [{"node":"kind-worker","pod":"hello-client-5bb8d986bb-9sb9l"},{"node":"kind-worker3","pod":"hello-server-7b5bbf4454-m889z"}]
 ```
 
 The plan has the node assignments that were planned for the podset. This has
