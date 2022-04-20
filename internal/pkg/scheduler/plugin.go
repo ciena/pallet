@@ -18,6 +18,7 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ciena/outbound/internal/pkg/client"
@@ -191,10 +192,20 @@ func (p *PodSetPlanner) Name() string {
 
 // PreFilter pre-filters the pods to be placed.
 func (p *PodSetPlanner) PreFilter(
-	_ context.Context,
+	parentCtx context.Context,
 	_ *framework.CycleState,
 	pod *v1.Pod) *framework.Status {
+
 	p.log.V(1).Info("prefilter", "pod", pod.Name)
+
+	err := p.canSchedulePod(parentCtx, pod)
+	if err != nil {
+		if errors.Is(err, ErrNoPodSetFound) {
+			return framework.NewStatus(framework.Success)
+		}
+
+		return framework.AsStatus(err)
+	}
 
 	return framework.NewStatus(framework.Success)
 }
@@ -343,6 +354,34 @@ func (p *PodSetPlanner) Unreserve(parentCtx context.Context, state *framework.Cy
 
 	state.Delete(plannerAssignmentStateKey)
 	p.log.V(1).Info("unreserve-delete-assignment-success", "pod", pod.Name, "node", nodeName)
+}
+
+func (p *PodSetPlanner) canSchedulePod(parentCtx context.Context, pod *v1.Pod) error {
+	podset := p.getPodSet(pod)
+	if podset == "" {
+		return ErrNoPodSetFound
+	}
+
+	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout)
+	trigger, err := p.triggerClient.Get(ctx, pod.Namespace, podset)
+
+	cancel()
+
+	if err != nil {
+		p.log.V(1).Info("no-trigger-found", "pod", pod.Name, "podset", podset, "namespace", pod.Namespace)
+
+		//nolint: wrapcheck
+		return err
+	}
+
+	// pod not assignable if trigger is not active
+	if trigger.Spec.State != "Schedule" {
+		p.log.V(1).Info("trigger-not-active", "trigger", trigger.Name, "state", trigger.Spec.State, "podset", podset)
+
+		return ErrPodNotAssignable
+	}
+
+	return nil
 }
 
 func (p *PodSetPlanner) findFit(parentCtx context.Context, pod *v1.Pod, eligibleNodes []string) (string, error) {
