@@ -194,8 +194,8 @@ func (p *PodSetPlanner) Name() string {
 func (p *PodSetPlanner) PreFilter(
 	parentCtx context.Context,
 	_ *framework.CycleState,
-	pod *v1.Pod) *framework.Status {
-
+	pod *v1.Pod,
+) *framework.Status {
 	p.log.V(1).Info("prefilter", "pod", pod.Name)
 
 	err := p.canSchedulePod(parentCtx, pod)
