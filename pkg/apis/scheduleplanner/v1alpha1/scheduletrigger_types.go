@@ -67,7 +67,7 @@ type ScheduleTriggerList struct {
 	Items           []ScheduleTrigger `json:"items"`
 }
 
-//nolint: gochecknoinits
+// nolint: gochecknoinits
 func init() {
 	SchemeBuilder.Register(&ScheduleTrigger{}, &ScheduleTriggerList{})
 }

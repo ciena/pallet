@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-//nolint: gochecknoglobals
+// nolint: gochecknoglobals
 var (
 	// GroupVersion is group version used to register these objects.
 	GroupVersion = schema.GroupVersion{Group: "planner.ciena.io", Version: "v1alpha1"}

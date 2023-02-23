@@ -74,7 +74,7 @@ type SchedulePlanList struct {
 	Items           []SchedulePlan `json:"items"`
 }
 
-//nolint: gochecknoinits
+// nolint: gochecknoinits
 func init() {
 	SchemeBuilder.Register(&SchedulePlan{}, &SchedulePlanList{})
 }
