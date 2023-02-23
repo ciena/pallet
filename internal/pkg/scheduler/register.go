@@ -25,15 +25,17 @@ import (
 )
 
 func addKnownTypes(scheme *runtime.Scheme) error {
+	//nolint:exhaustruct
 	scheme.AddKnownTypes(schedschemebuilder.SchemeGroupVersion,
 		&PodSetPlannerArgs{})
+	//nolint:exhaustruct
 	scheme.AddKnownTypes(schedschemeinternalbuilder.SchemeGroupVersion,
 		&PodSetPlannerArgs{})
 
 	return nil
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
 	localSchemeBuilder := &schedschemebuilder.SchemeBuilder
 	localSchemeBuilder.Register(addKnownTypes)

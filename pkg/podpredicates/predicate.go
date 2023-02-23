@@ -134,6 +134,7 @@ func stdrLogger() logr.Logger {
 
 // New is used to create a predicateHandler instance.
 func New(opts ...Option) (*PredicateHandler, error) {
+	//nolint:exhaustruct
 	popt := predicateOption{
 		callTimeout: defaultCallTimeout,
 		log:         stdrLogger(),
@@ -162,6 +163,7 @@ func New(opts ...Option) (*PredicateHandler, error) {
 		}
 	}
 
+	//nolint:exhaustruct
 	predicateHandler := &PredicateHandler{
 		predicateMap:    predicateMap,
 		registry:        registry,

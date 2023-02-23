@@ -108,7 +108,8 @@ func (r *ScheduleTriggerReconciler) ScheduleTimerReset(trigger *plannerv1alpha1.
 }
 
 func (r *ScheduleTriggerReconciler) quietTimer(ref *triggerReference,
-	trigger *plannerv1alpha1.ScheduleTrigger) {
+	trigger *plannerv1alpha1.ScheduleTrigger,
+) {
 	defer ref.timer.Stop()
 
 	for {
@@ -191,7 +192,6 @@ func (r *ScheduleTriggerReconciler) checkAndAllocateScheduleTimer(trigger *plann
 
 		r.Log.V(1).Info("quiet-timer-start", "trigger", trigger.Name, "duration", duration)
 
-		//nolint: contextcheck
 		go r.quietTimer(ref, trigger)
 	} else if ref.duration != duration {
 		r.Log.V(1).Info("quiet-timer-reset", "duration", duration)
@@ -209,7 +209,8 @@ func (r *ScheduleTriggerReconciler) RegisterScheduleTrigger(cb ScheduleTriggerCa
 }
 
 func (r *ScheduleTriggerReconciler) scheduleTrigger(parentCtx context.Context,
-	trigger *plannerv1alpha1.ScheduleTrigger) {
+	trigger *plannerv1alpha1.ScheduleTrigger,
+) {
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 
@@ -239,7 +240,7 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 		// delete timer for the trigger
 		r.deleteTimer(req.NamespacedName)
 
-		// nolint:nilerr
+		//nolint:nilerr,exhaustruct
 		return ctrl.Result{}, nil
 	}
 
@@ -250,6 +251,7 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 	//nolint:contextcheck
 	r.checkAndAllocateScheduleTimer(&trigger)
 
+	//nolint:exhaustruct
 	return ctrl.Result{}, nil
 }
 
@@ -257,7 +259,7 @@ func (r *ScheduleTriggerReconciler) Reconcile(parentCtx context.Context, req ctr
 func (r *ScheduleTriggerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.scheduleTriggerMap = make(map[types.NamespacedName]*triggerReference)
 
-	//nolint:wrapcheck
+	//nolint:wrapcheck,exhaustruct
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&plannerv1alpha1.ScheduleTrigger{}).
 		Complete(r)

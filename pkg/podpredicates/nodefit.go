@@ -23,8 +23,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
-	descheduler_nodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
-	descheduler_utils "sigs.k8s.io/descheduler/pkg/utils"
+	deschedulernodeutil "sigs.k8s.io/descheduler/pkg/descheduler/node"
+	deschedulerutils "sigs.k8s.io/descheduler/pkg/utils"
 )
 
 // Resource is a collection of compute resource.
@@ -41,6 +41,7 @@ type Resource struct {
 
 // NewResource creates a Resource from ResourceList.
 func NewResource(rl v1.ResourceList) *Resource {
+	//nolint:exhaustruct
 	r := &Resource{}
 	r.Add(rl)
 
@@ -99,6 +100,7 @@ func (r *Resource) ResourceList() v1.ResourceList {
 
 // Clone returns a copy of this resource.
 func (r *Resource) Clone() *Resource {
+	//nolint:exhaustruct
 	res := &Resource{
 		MilliCPU:         r.MilliCPU,
 		Memory:           r.Memory,
@@ -165,6 +167,7 @@ func (r *Resource) SetMaxResource(rl v1.ResourceList) {
 }
 
 func computePodResourceRequest(pod *v1.Pod) *Resource {
+	//nolint:exhaustruct
 	result := &Resource{}
 	for i := range pod.Spec.Containers {
 		result.Add(pod.Spec.Containers[i].Resources.Requests)
@@ -187,7 +190,9 @@ const (
 )
 
 var (
-	_ Predicate       = &podFitsNode{}
+	//nolint:exhaustruct
+	_ Predicate = &podFitsNode{}
+	//nolint:exhaustruct
 	_ FilterPredicate = &podFitsNode{}
 )
 
@@ -209,7 +214,7 @@ func (p *podFitsNode) Filter(_ context.Context,
 	node *v1.Node,
 ) *framework.Status {
 	// check for node taint toleration
-	if ok := descheduler_utils.TolerationsTolerateTaintsWithFilter(
+	if ok := deschedulerutils.TolerationsTolerateTaintsWithFilter(
 		pod.Spec.Tolerations, node.Spec.Taints,
 		func(taint *v1.Taint) bool {
 			return taint.Effect == v1.TaintEffectNoSchedule
@@ -218,7 +223,7 @@ func (p *podFitsNode) Filter(_ context.Context,
 	}
 
 	// check for node label and affinity
-	if ok := descheduler_nodeutil.PodFitsCurrentNode(pod, node); !ok {
+	if ok := deschedulernodeutil.PodFitsCurrentNode(pod, node); !ok {
 		return framework.NewStatus(framework.Unschedulable)
 	}
 

@@ -30,6 +30,7 @@ type podSetHandlerImpl struct {
 	pods    []*v1.Pod
 }
 
+//nolint:exhaustruct
 var _ podpredicates.PodSetHandle = &podSetHandlerImpl{}
 
 func newPodSetHandler(planner *PodSetPlanner, pods []*v1.Pod) *podSetHandlerImpl {
@@ -37,8 +38,7 @@ func newPodSetHandler(planner *PodSetPlanner, pods []*v1.Pod) *podSetHandlerImpl
 }
 
 // ClientSet returns the k8s clientset.
-// nolint:ireturn
-func (ps *podSetHandlerImpl) ClientSet() kubernetes.Interface {
+func (ps *podSetHandlerImpl) ClientSet() kubernetes.Interface { //nolint:ireturn
 	return ps.planner.clientset
 }
 

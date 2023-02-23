@@ -43,12 +43,13 @@ func (r *SchedulePlanReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// your logic here
 
+	//nolint:exhaustruct
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SchedulePlanReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// nolint:wrapcheck
+	//nolint:wrapcheck,exhaustruct
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&plannerv1alpha1.SchedulePlan{}).
 		Complete(r)

@@ -105,7 +105,7 @@ func main() {
 		"Display version information and exit")
 	flag.BoolVar(&config.ShowVersionAsJSON,
 		"json", false,
-		"If displaying version, do so a a JSON object.")
+		"If displaying version, do so a JSON object.")
 	flag.StringVar(&config.Listen,
 		"listen", ":7777",
 		"Endpoint on which to listen for API requests to the planner.")
@@ -113,7 +113,7 @@ func main() {
 
 	if config.ShowVersion {
 		if config.ShowVersionAsJSON {
-			// nolint:errchkjson
+			//nolint:errchkjson
 			bytes, _ := json.Marshal(version.Version())
 			fmt.Fprintln(os.Stdout, string(bytes))
 		} else {
@@ -161,6 +161,7 @@ func main() {
 	}
 
 	// Start the API server
+	//nolint:exhaustruct
 	api := &planner.APIServer{
 		Listen:  config.Listen,
 		Planner: podsetPlanner,

@@ -63,5 +63,6 @@ func (a *APIServer) BuildSchedulePlan(ctx context.Context,
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	//nolint:exhaustruct
 	return &api.SchedulePlanResponse{Assignments: assignments}, nil
 }

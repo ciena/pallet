@@ -43,7 +43,8 @@ func NewTriggerClient(c client.Client, log logr.Logger) *ScheduleTriggerClient {
 // List lists the schedule trigger instances by namespace and labels.
 func (c *ScheduleTriggerClient) List(ctx context.Context,
 	namespace string,
-	labels map[string]string) (*plannerv1alpha1.ScheduleTriggerList, error) {
+	labels map[string]string,
+) (*plannerv1alpha1.ScheduleTriggerList, error) {
 	var triggerList plannerv1alpha1.ScheduleTriggerList
 
 	err := c.Client.List(ctx, &triggerList,

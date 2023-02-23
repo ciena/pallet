@@ -50,10 +50,10 @@ type PlanSpec struct {
 // SchedulePlan is the Schema for the schedulePlan api
 // +genclient.
 type SchedulePlan struct {
-	//nolint: tagliatelle
+	//nolint: nolintlint,tagliatelle
 	metav1.TypeMeta `json:",inline"`
 
-	//nolint: tagliatelle
+	//nolint: nolintlint,tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -67,14 +67,15 @@ type SchedulePlan struct {
 
 // SchedulePlanList contains a list of schedule plans.
 type SchedulePlanList struct {
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.TypeMeta `json:",inline"`
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SchedulePlan `json:"items"`
 }
 
-// nolint: gochecknoinits
+//nolint:gochecknoinits
 func init() {
+	//nolint:exhaustruct
 	SchemeBuilder.Register(&SchedulePlan{}, &SchedulePlanList{})
 }

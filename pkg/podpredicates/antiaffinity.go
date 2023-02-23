@@ -37,7 +37,9 @@ const (
 )
 
 var (
-	_ Predicate       = &podAntiAffinity{}
+	//nolint:exhaustruct
+	_ Predicate = &podAntiAffinity{}
+	//nolint:exhaustruct
 	_ FilterPredicate = &podAntiAffinity{}
 )
 

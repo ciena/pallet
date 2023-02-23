@@ -36,7 +36,9 @@ type podIsADuplicate struct {
 }
 
 var (
-	_ Predicate       = &podIsADuplicate{}
+	//nolint:exhaustruct
+	_ Predicate = &podIsADuplicate{}
+	//nolint:exhaustruct
 	_ FilterPredicate = &podIsADuplicate{}
 )
 

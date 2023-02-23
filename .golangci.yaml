@@ -582,7 +582,7 @@ linters-settings:
   testpackage:
     # regexp pattern to skip files
     skip-regexp: (export|internal)_test\.go
-    skip-regexp: ".*generated*.deepcopy.go"
+    #skip-regexp: ".*generated*.deepcopy.go"
 
   thelper:
     # The following configurations enable all checks. It can be omitted because all checks are enabled by default.
@@ -657,14 +657,20 @@ linters:
   #presets:
   #  - bugs
   #  - unused
-  fast: false
+  fast: true
   disable:
     # these were deprecated, so disable them
     - interfacer
     - golint
     - maligned
     - scopelint
-
+    - structcheck
+    - exhaustivestruct
+    - varcheck
+    - ifshort
+    - nosnakecase
+    - deadcode
+    - gci
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source

@@ -138,6 +138,7 @@ func (s *PlannerService) lookupWithLabelSelector(parentCtx context.Context,
 	ctx, cancel := context.WithTimeout(parentCtx, s.callTimeout)
 	defer cancel()
 
+	//nolint:exhaustruct
 	svcs, err := s.handle.ClientSet().CoreV1().Services("").List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector,
 	})
@@ -192,7 +193,8 @@ func (s *PlannerService) Lookup(parentCtx context.Context,
 
 // Invoke is used to invoke all the podset planners.
 func (planners PlannerList) Invoke(parentCtx context.Context,
-	trigger *plannerv1alpha1.ScheduleTrigger) (map[string]string, error) {
+	trigger *plannerv1alpha1.ScheduleTrigger,
+) (map[string]string, error) {
 	//nolint:prealloc
 	var planRewards []*planReward
 
@@ -258,6 +260,7 @@ func (p *Planner) BuildSchedulePlan(parentCtx context.Context) (map[string]strin
 
 	defer cancel()
 
+	//nolint:exhaustruct
 	req := &planner.SchedulePlanRequest{
 		Namespace:     p.Namespace,
 		PodSet:        p.Podset,

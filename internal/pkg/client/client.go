@@ -50,6 +50,7 @@ func init() {
 
 // NewSchedulePlannerClient creates a new client for schedule planner resource.
 func NewSchedulePlannerClient(config *rest.Config, log logr.Logger) (*SchedulePlannerClient, error) {
+	//nolint:exhaustruct
 	genericClient, err := ctlrclient.New(config,
 		ctlrclient.Options{
 			Scheme: plannerScheme,
@@ -63,6 +64,7 @@ func NewSchedulePlannerClient(config *rest.Config, log logr.Logger) (*SchedulePl
 
 // NewScheduleTriggerClient creates a new client for schedule trigger resource.
 func NewScheduleTriggerClient(config *rest.Config, log logr.Logger) (*ScheduleTriggerClient, error) {
+	//nolint:exhaustruct
 	genericClient, err := ctlrclient.New(config,
 		ctlrclient.Options{
 			Scheme: triggerScheme,

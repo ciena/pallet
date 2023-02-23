@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -45,7 +45,7 @@ const (
 	leaderElectionID = "64e1845a-5786-11ec-bf63-0242ac130002.ciena.com"
 )
 
-// nolint:gochecknoinits,wsl
+//nolint:gochecknoinits,wsl
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -77,8 +77,9 @@ func main() {
 		"Display version information and exit")
 	flag.BoolVar(&config.ShowVersionAsJSON,
 		"json", false,
-		"If displaying version, do so a a JSON object.")
+		"If displaying version, do so a JSON object.")
 
+	//nolint:exhaustruct
 	opts := zap.Options{
 		Development: true,
 	}
@@ -89,7 +90,7 @@ func main() {
 
 	if config.ShowVersion {
 		if config.ShowVersionAsJSON {
-			// nolint:errchkjson
+			//nolint:errchkjson
 			bytes, _ := json.Marshal(controllers.Version())
 			fmt.Fprintln(os.Stdout, string(bytes))
 		} else {
@@ -101,6 +102,7 @@ func main() {
 
 	var err error
 
+	//nolint:exhaustruct
 	options := ctrl.Options{
 		Scheme:           scheme,
 		LeaderElection:   config.EnableLeaderElection,

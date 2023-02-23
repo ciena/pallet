@@ -25,7 +25,6 @@ import (
 // PodSetPlannerArgs defines the parameters for the scheduling plugin
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type PodSetPlannerArgs struct {
-	// nolint:tagliatelle
 	metav1.TypeMeta `json:",inline"`
 	Debug           bool   `json:"debug,omitempty"`
 	CallTimeout     string `json:"callTimeout,omitempty"`
@@ -41,7 +40,7 @@ type PodSetPlannerOptions struct {
 
 // DefaultPodSetPlannerConfig returns the default options for podset scheduler.
 func DefaultPodSetPlannerConfig() *PodSetPlannerOptions {
-	// nolint:gomnd
+	//nolint:gomnd
 	return &PodSetPlannerOptions{
 		Debug:        true,
 		CallTimeout:  time.Second * 15,

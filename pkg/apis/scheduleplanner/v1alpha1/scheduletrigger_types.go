@@ -43,10 +43,10 @@ type ScheduleTriggerStatus struct{}
 // ScheduleTrigger is the Schema for the scheduleTrigger api
 // +genclient.
 type ScheduleTrigger struct {
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.TypeMeta `json:",inline"`
 
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +kubebuilder:validation:Required
@@ -60,14 +60,15 @@ type ScheduleTrigger struct {
 
 // ScheduleTriggerList contains a list of schedule triggers.
 type ScheduleTriggerList struct {
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.TypeMeta `json:",inline"`
-	//nolint: tagliatelle
+	//nolint:nolintlint,tagliatelle
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ScheduleTrigger `json:"items"`
 }
 
-// nolint: gochecknoinits
+//nolint:gochecknoinits
 func init() {
+	//nolint:exhaustruct
 	SchemeBuilder.Register(&ScheduleTrigger{}, &ScheduleTriggerList{})
 }

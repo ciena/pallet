@@ -35,7 +35,7 @@ const (
 	plannerAssignmentStateKey = Name + "AssignmentState"
 )
 
-// PodSetPlanner instance state for the the policy scheduling
+// PodSetPlanner instance state for the policy scheduling
 // plugin.
 type PodSetPlanner struct {
 	handle         framework.Handle
@@ -51,18 +51,24 @@ type plannerAssignmentState struct {
 }
 
 var (
-	_ framework.PreFilterPlugin  = &PodSetPlanner{}
-	_ framework.PreScorePlugin   = &PodSetPlanner{}
-	_ framework.ScorePlugin      = &PodSetPlanner{}
+	//nolint:exhaustruct
+	_ framework.PreFilterPlugin = &PodSetPlanner{}
+	//nolint:exhaustruct
+	_ framework.PreScorePlugin = &PodSetPlanner{}
+	//nolint:exhaustruct
+	_ framework.ScorePlugin = &PodSetPlanner{}
+	//nolint:exhaustruct
 	_ framework.PostFilterPlugin = &PodSetPlanner{}
-	_ framework.ReservePlugin    = &PodSetPlanner{}
+	//nolint:exhaustruct
+	_ framework.ReservePlugin = &PodSetPlanner{}
 )
 
 // New create a new framework plugin intance.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func New(
-	obj runtime.Object, handle framework.Handle) (framework.Plugin, error,
-) {
+	obj runtime.Object, handle framework.Handle,
+) (framework.Plugin, error) {
 	var log logr.Logger
 
 	var config *PodSetPlannerOptions
@@ -154,8 +160,7 @@ func getAssignmentState(cycleState *framework.CycleState) (*plannerAssignmentSta
 }
 
 // Clone isn't needed for our state data.
-// nolint:ireturn
-func (s *plannerAssignmentState) Clone() framework.StateData {
+func (s *plannerAssignmentState) Clone() framework.StateData { //nolint:ireturn
 	return s
 }
 
@@ -190,17 +195,21 @@ func (p *PodSetPlanner) Name() string {
 }
 
 // PreFilter pre-filters the pods to be placed.
+//
+//nolint:nolintlint,ireturn
 func (p *PodSetPlanner) PreFilter(
 	_ context.Context,
 	_ *framework.CycleState,
-	pod *v1.Pod) *framework.Status {
+	pod *v1.Pod,
+) *framework.Status {
 	p.log.V(1).Info("prefilter", "pod", pod.Name)
 
 	return framework.NewStatus(framework.Success)
 }
 
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
-// nolint:ireturn
+//
+//nolint:nolintlint,ireturn
 func (p *PodSetPlanner) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
 }
@@ -210,10 +219,11 @@ func (p *PodSetPlanner) PreScore(
 	parentCtx context.Context,
 	state *framework.CycleState,
 	pod *v1.Pod,
-	nodes []*v1.Node) *framework.Status {
+	nodes []*v1.Node,
+) *framework.Status {
 	p.log.V(1).Info("pre-score", "pod", pod.Name, "nodes", len(nodes))
 
-	//nolint: gomnd
+	//nolint:gomnd
 	ctx, cancel := context.WithTimeout(parentCtx, p.options.CallTimeout*2)
 	defer cancel()
 
@@ -238,7 +248,8 @@ func (p *PodSetPlanner) PreScore(
 func (p *PodSetPlanner) Score(
 	ctx context.Context,
 	state *framework.CycleState,
-	pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	pod *v1.Pod, nodeName string,
+) (int64, *framework.Status) {
 	p.log.V(1).Info("score", "pod", pod.Name, "node", nodeName)
 
 	assignmentState, err := getAssignmentState(state)
@@ -256,8 +267,7 @@ func (p *PodSetPlanner) Score(
 }
 
 // ScoreExtensions calcuates scores for the extensions.
-// nolint:ireturn
-func (p *PodSetPlanner) ScoreExtensions() framework.ScoreExtensions {
+func (p *PodSetPlanner) ScoreExtensions() framework.ScoreExtensions { //nolint:ireturn
 	return nil
 }
 

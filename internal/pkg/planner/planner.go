@@ -72,7 +72,9 @@ type workWrapper struct {
 func NewPlanner(options Options,
 	clientset *kubernetes.Clientset,
 	plannerClient *client.SchedulePlannerClient,
-	log logr.Logger) (*PodSetPlanner, error) {
+	log logr.Logger,
+) (*PodSetPlanner, error) {
+	//nolint:exhaustruct
 	planner := &PodSetPlanner{
 		options:      options,
 		clientset:    clientset,
@@ -170,6 +172,7 @@ func initInformers(clientset *kubernetes.Clientset,
 	factory := informers.NewSharedInformerFactory(clientset, 0)
 	nodeInformer := factory.Core().V1().Nodes()
 
+	//nolint:exhaustruct
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node, ok := obj.(*v1.Node)
@@ -334,7 +337,8 @@ func (p *PodSetPlanner) listenForUpdateEvents() {
 func (p *PodSetPlanner) getEligibleNodesForPod(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	pod *v1.Pod,
-	allEligibleNodes []*v1.Node) ([]string, error) {
+	allEligibleNodes []*v1.Node,
+) ([]string, error) {
 	filteredNodes := p.predicateHandler.FindNodesThatPassFilters(parentCtx,
 		podSetHandler,
 		pod,
@@ -356,7 +360,8 @@ func (p *PodSetPlanner) getEligibleNodes(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	pod *v1.Pod,
 	allEligibleNodes []*v1.Node,
-	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo) ([]string, error) {
+	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo,
+) ([]string, error) {
 	plannerInfo, ok := schedulingMap[ktypes.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
 	if ok {
 		return plannerInfo.EligibleNodes, nil
@@ -378,7 +383,8 @@ func (p *PodSetPlanner) getEligibleNodes(parentCtx context.Context,
 func (p *PodSetPlanner) BuildPlan(parentCtx context.Context,
 	podSetHandler *podSetHandlerImpl,
 	podList []*v1.Pod,
-	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo) (map[string]string, error) {
+	schedulingMap map[ktypes.NamespacedName]*podPlannerInfo,
+) (map[string]string, error) {
 	var failedPodList []*v1.Pod
 
 	podNames := make([]string, len(podList))
@@ -458,6 +464,7 @@ func (p *PodSetPlanner) BuildSchedulePlan(parentCtx context.Context,
 	defer cancel()
 
 	pods, err := p.clientset.CoreV1().Pods(namespace).List(ctx,
+		//nolint:exhaustruct
 		metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("planner.ciena.io/pod-set=%s", podSet),
 		},
@@ -612,7 +619,7 @@ func (p *PodSetPlanner) selectNode(nodeScoreList framework.NodeScoreList) (strin
 	return selectedNode, nil
 }
 
-// nolint:gochecknoinits
+//nolint:gochecknoinits
 func init() {
 	rand.Seed(time.Now().Unix())
 }

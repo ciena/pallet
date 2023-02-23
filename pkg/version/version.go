@@ -26,7 +26,7 @@ const (
 	nl = "\n"
 )
 
-// nolint:gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	version       string
 	vcsURL        string
@@ -76,7 +76,8 @@ func Version() *Spec {
 }
 
 // String returns the version information in string form.
-// nolint:gocognit,cyclop
+//
+//nolint:gocognit,cyclop
 func (v *Spec) String() string {
 	var ver strings.Builder
 

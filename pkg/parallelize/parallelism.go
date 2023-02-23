@@ -58,7 +58,8 @@ func (p *Parallelizer) chunkSize(pieces int) int {
 // Until parallelizes and waits until doWorkPiece is executed for all pieces.
 func (p *Parallelizer) Until(ctx context.Context,
 	pieces int,
-	doWorkPiece workqueue.DoWorkPieceFunc) {
+	doWorkPiece workqueue.DoWorkPieceFunc,
+) {
 	workqueue.ParallelizeUntil(ctx, p.parallelism,
 		pieces, doWorkPiece,
 		workqueue.WithChunkSize(p.chunkSize(pieces)))

@@ -40,7 +40,8 @@ func NewPlannerClient(c client.Client, log logr.Logger) *SchedulePlannerClient {
 // List lists the schedule planner resources by namespace and labels.
 func (c *SchedulePlannerClient) List(ctx context.Context,
 	namespace string,
-	labels map[string]string) (*plannerv1alpha1.SchedulePlanList, error) {
+	labels map[string]string,
+) (*plannerv1alpha1.SchedulePlanList, error) {
 	var planList plannerv1alpha1.SchedulePlanList
 
 	err := c.Client.List(ctx, &planList,
@@ -57,7 +58,8 @@ func (c *SchedulePlannerClient) List(ctx context.Context,
 
 // Get gets the schedule planner resource by namespace and podset.
 func (c *SchedulePlannerClient) Get(ctx context.Context,
-	namespace, podset string) (*plannerv1alpha1.SchedulePlan, error) {
+	namespace, podset string,
+) (*plannerv1alpha1.SchedulePlan, error) {
 	var plan plannerv1alpha1.SchedulePlan
 
 	name := getName(namespace, podset)
@@ -85,7 +87,9 @@ func (c *SchedulePlannerClient) Update(ctx context.Context,
 		}
 
 		name := getName(namespace, podset)
+		//nolint:exhaustruct
 		plan := plannerv1alpha1.SchedulePlan{
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      name,
@@ -168,7 +172,9 @@ func (c *SchedulePlannerClient) UpdateAssignment(ctx context.Context,
 		}
 
 		name := getName(namespace, podset)
+		//nolint:exhaustruct
 		plan := plannerv1alpha1.SchedulePlan{
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      name,
@@ -264,7 +270,9 @@ func (c *SchedulePlannerClient) Delete(ctx context.Context, podName, namespace, 
 
 	if len(newPlan) == 0 {
 		// delete the plan
+		//nolint:exhaustruct
 		plan := &plannerv1alpha1.SchedulePlan{
+			//nolint:exhaustruct
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      planRef.Name,
 				Namespace: planRef.Namespace,
